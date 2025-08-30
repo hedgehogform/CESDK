@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net4.8.1</TargetFramework>
+    <RootNamespace>CESDK</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- NuGet Package Metadata -->
+    <PackageId>CheatEngine.SDK</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>hedgehogform</Authors>
+    <Company>hedgehogform</Company>
+    <Product>Cheat Engine SDK</Product>
+    <Description>A C# wrapper library for developing plugins for Cheat Engine. Provides managed .NET
+      interfaces for memory scanning, process manipulation, and reverse engineering tasks.</Description>
+    <Summary>C# SDK for Cheat Engine plugin development</Summary>
+    <PackageTags>
+      cheat-engine;memory-scanning;reverse-engineering;game-hacking;process-manipulation;lua-wrapper</PackageTags>
+    <PackageProjectUrl>https://github.com/hedgehogform/CESDK</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/hedgehogform/CESDK</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright © 2025</Copyright>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Initial release of Cheat Engine SDK for C# plugin development</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
