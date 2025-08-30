@@ -398,3 +398,5 @@ FodyWeavers.xsd
 .idea/
 
 celua.txt
+legacy/
+.claude/
