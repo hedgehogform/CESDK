@@ -204,17 +204,13 @@ namespace CESDK.System
     /// <summary>
     /// Exception thrown when platform information retrieval fails.
     /// </summary>
-    public class PlatformInfoException : Exception
+    /// <remarks>
+    /// Initializes a new instance of the PlatformInfoException class.
+    /// </remarks>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public class PlatformInfoException(string message, Exception? innerException = null) : Exception($"Failed to retrieve platform information: {message}", innerException)
     {
-        /// <summary>
-        /// Initializes a new instance of the PlatformInfoException class.
-        /// </summary>
-        /// <param name="message">The error message.</param>
-        /// <param name="innerException">The inner exception.</param>
-        public PlatformInfoException(string message, Exception? innerException = null)
-            : base($"Failed to retrieve platform information: {message}", innerException)
-        {
-        }
     }
 
     /// <summary>

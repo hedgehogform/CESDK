@@ -444,13 +444,10 @@ namespace CESDK.Lua
         /// <para>Numbers and strings are converted directly. Other types may not be convertible.</para>
         /// <para>This function may change the actual value on the stack (numbers become strings).</para>
         /// </remarks>
-        public string? ToString(IntPtr state, int index)
+        public string ToString(IntPtr state, int index)
         {
             var ptr = _toString(state, index);
-            // S2225: Intentionally returning null to match legacy behavior - empty string would be incorrect
-#pragma warning disable S2225
-            return ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) : null;
-#pragma warning restore S2225
+            return ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) : string.Empty;
         }
 
         /// <summary>

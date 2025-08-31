@@ -57,24 +57,18 @@ namespace CESDK.System
     /// <summary>
     /// Exception thrown when address resolution fails.
     /// </summary>
-    public class AddressResolutionException : Exception
+    /// <remarks>
+    /// Initializes a new instance of the AddressResolutionException class.
+    /// </remarks>
+    /// <param name="symbolName">The symbol name that failed to resolve.</param>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public class AddressResolutionException(string symbolName, string message, Exception? innerException = null) : Exception($"Failed to resolve symbol '{symbolName}': {message}", innerException)
     {
         /// <summary>
         /// Gets the symbol name that failed to resolve.
         /// </summary>
-        public string SymbolName { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the AddressResolutionException class.
-        /// </summary>
-        /// <param name="symbolName">The symbol name that failed to resolve.</param>
-        /// <param name="message">The error message.</param>
-        /// <param name="innerException">The inner exception.</param>
-        public AddressResolutionException(string symbolName, string message, Exception? innerException = null)
-            : base($"Failed to resolve symbol '{symbolName}': {message}", innerException)
-        {
-            SymbolName = symbolName;
-        }
+        public string SymbolName { get; } = symbolName;
     }
 
     /// <summary>

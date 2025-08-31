@@ -170,46 +170,34 @@ namespace CESDK.Memory
     /// <summary>
     /// Exception thrown when an AOB pattern is invalid or malformed.
     /// </summary>
-    public class InvalidAOBPatternException : Exception
+    /// <remarks>
+    /// Initializes a new instance of the InvalidAOBPatternException class.
+    /// </remarks>
+    /// <param name="pattern">The invalid pattern.</param>
+    /// <param name="message">The error message.</param>
+    public class InvalidAOBPatternException(string pattern, string message) : Exception($"Invalid AOB pattern '{pattern}': {message}")
     {
         /// <summary>
         /// Gets the invalid pattern that caused the exception.
         /// </summary>
-        public string Pattern { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the InvalidAOBPatternException class.
-        /// </summary>
-        /// <param name="pattern">The invalid pattern.</param>
-        /// <param name="message">The error message.</param>
-        public InvalidAOBPatternException(string pattern, string message)
-            : base($"Invalid AOB pattern '{pattern}': {message}")
-        {
-            Pattern = pattern;
-        }
+        public string Pattern { get; } = pattern;
     }
 
     /// <summary>
     /// Exception thrown when an AOB scan operation fails.
     /// </summary>
-    public class AOBScanException : Exception
+    /// <remarks>
+    /// Initializes a new instance of the AOBScanException class.
+    /// </remarks>
+    /// <param name="pattern">The pattern being scanned.</param>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public class AOBScanException(string pattern, string message, Exception? innerException = null) : Exception($"AOB scan failed for pattern '{pattern}': {message}", innerException)
     {
         /// <summary>
         /// Gets the pattern that was being scanned when the exception occurred.
         /// </summary>
-        public string Pattern { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the AOBScanException class.
-        /// </summary>
-        /// <param name="pattern">The pattern being scanned.</param>
-        /// <param name="message">The error message.</param>
-        /// <param name="innerException">The inner exception.</param>
-        public AOBScanException(string pattern, string message, Exception? innerException = null)
-            : base($"AOB scan failed for pattern '{pattern}': {message}", innerException)
-        {
-            Pattern = pattern;
-        }
+        public string Pattern { get; } = pattern;
     }
     /// <summary>
     /// Provides high-level Array of Bytes (AOB) scanning functionality using Cheat Engine's native scanning capabilities.

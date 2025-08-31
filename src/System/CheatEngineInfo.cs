@@ -3,17 +3,13 @@ namespace CESDK.System
     /// <summary>
     /// Exception thrown when Cheat Engine information retrieval fails.
     /// </summary>
-    public class CheatEngineInfoException : Exception
+    /// <remarks>
+    /// Initializes a new instance of the CheatEngineInfoException class.
+    /// </remarks>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public class CheatEngineInfoException(string message, Exception? innerException = null) : Exception($"Failed to retrieve CE information: {message}", innerException)
     {
-        /// <summary>
-        /// Initializes a new instance of the CheatEngineInfoException class.
-        /// </summary>
-        /// <param name="message">The error message.</param>
-        /// <param name="innerException">The inner exception.</param>
-        public CheatEngineInfoException(string message, Exception? innerException = null)
-            : base($"Failed to retrieve CE information: {message}", innerException)
-        {
-        }
     }
 
     /// <summary>

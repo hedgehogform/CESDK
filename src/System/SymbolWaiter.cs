@@ -29,24 +29,18 @@ namespace CESDK.System
     /// <summary>
     /// Exception thrown when symbol waiting operations fail.
     /// </summary>
-    public class SymbolWaitException : Exception
+    /// <remarks>
+    /// Initializes a new instance of the SymbolWaitException class.
+    /// </remarks>
+    /// <param name="level">The symbol level that failed to load.</param>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public class SymbolWaitException(SymbolLevel level, string message, Exception? innerException = null) : Exception($"Failed to wait for {level} symbols: {message}", innerException)
     {
         /// <summary>
         /// Gets the symbol level that was being waited for.
         /// </summary>
-        public SymbolLevel Level { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the SymbolWaitException class.
-        /// </summary>
-        /// <param name="level">The symbol level that failed to load.</param>
-        /// <param name="message">The error message.</param>
-        /// <param name="innerException">The inner exception.</param>
-        public SymbolWaitException(SymbolLevel level, string message, Exception? innerException = null)
-            : base($"Failed to wait for {level} symbols: {message}", innerException)
-        {
-            Level = level;
-        }
+        public SymbolLevel Level { get; } = level;
     }
 
     /// <summary>

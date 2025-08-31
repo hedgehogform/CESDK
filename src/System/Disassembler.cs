@@ -89,24 +89,18 @@ namespace CESDK.System
     /// <summary>
     /// Exception thrown when disassembly operations fail.
     /// </summary>
-    public class DisassemblyException : Exception
+    /// <remarks>
+    /// Initializes a new instance of the DisassemblyException class.
+    /// </remarks>
+    /// <param name="address">The address that failed to disassemble.</param>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public class DisassemblyException(ulong address, string message, Exception? innerException = null) : Exception($"Failed to disassemble address 0x{address:X}: {message}", innerException)
     {
         /// <summary>
         /// Gets the address that caused the disassembly failure.
         /// </summary>
-        public ulong Address { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the DisassemblyException class.
-        /// </summary>
-        /// <param name="address">The address that failed to disassemble.</param>
-        /// <param name="message">The error message.</param>
-        /// <param name="innerException">The inner exception.</param>
-        public DisassemblyException(ulong address, string message, Exception? innerException = null)
-            : base($"Failed to disassemble address 0x{address:X}: {message}", innerException)
-        {
-            Address = address;
-        }
+        public ulong Address { get; } = address;
     }
 
     /// <summary>
@@ -649,6 +643,63 @@ namespace CESDK.System
             {
                 instruction = null;
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the comment associated with a specific memory address.
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns>The comment associated with the specified memory address.</returns>
+        /// <exception cref="CheatEngineInfoException"></exception>
+        public static string GetComment(long address)
+        {
+            var lua = PluginContext.Lua;
+            var state = lua.State;
+            var native = lua.Native;
+
+            native.GetGlobal(state, "getComment");
+            if (!native.IsFunction(state, -1))
+            {
+                native.Pop(state, 1);
+                throw new CheatEngineInfoException("getComment function not available in this CE version");
+            }
+
+            native.PushInteger(state, address);
+            var result = native.PCall(state, 1, 1);
+            if (result != 0)
+            {
+                var error = native.ToString(state, -1);
+                native.Pop(state, 1);
+                throw new CheatEngineInfoException($"getComment() call failed: {error}");
+            }
+
+            var comment = native.ToString(state, -1);
+            native.Pop(state, 1);
+            return comment;
+        }
+
+        public static void SetComment(long address, string comment)
+        {
+            var lua = PluginContext.Lua;
+            var state = lua.State;
+            var native = lua.Native;
+
+            native.GetGlobal(state, "setComment");
+            if (!native.IsFunction(state, -1))
+            {
+                native.Pop(state, 1);
+                throw new CheatEngineInfoException("setComment function not available in this CE version");
+            }
+
+            native.PushInteger(state, address);
+            native.PushString(state, comment);
+            var result = native.PCall(state, 2, 0);
+            if (result != 0)
+            {
+                var error = native.ToString(state, -1);
+                native.Pop(state, 1);
+                throw new CheatEngineInfoException($"setComment() call failed: {error}");
             }
         }
     }
