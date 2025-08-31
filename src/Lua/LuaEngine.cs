@@ -603,5 +603,105 @@ namespace CESDK.Lua
         {
             _luaPushClassInstance(State, ceObject);
         }
+
+        /// <summary>
+        /// Calls a Lua function that returns a boolean value.
+        /// </summary>
+        /// <param name="functionName">The name of the Lua function to call.</param>
+        /// <returns>The boolean result of the function call.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the function is not available or call fails.</exception>
+        /// <remarks>
+        /// <para>This is a utility method for calling parameterless Lua functions that return boolean values.</para>
+        /// <para>Commonly used for platform detection and feature availability functions in CE.</para>
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// bool is64Bit = Lua.CallBooleanFunction("targetIs64Bit");
+        /// bool isDarkMode = Lua.CallBooleanFunction("darkMode");
+        /// </code>
+        /// </example>
+        public bool CallBooleanFunction(string functionName)
+        {
+            var lua = PluginContext.Lua;
+            var state = lua.State;
+            var native = lua.Native;
+
+            try
+            {
+                native.GetGlobal(state, functionName);
+                if (!native.IsFunction(state, -1))
+                {
+                    native.Pop(state, 1);
+                    throw new InvalidOperationException($"{functionName} function not available in this CE version");
+                }
+
+                var result = native.PCall(state, 0, 1);
+                if (result != 0)
+                {
+                    var error = native.ToString(state, -1);
+                    native.Pop(state, 1);
+                    throw new InvalidOperationException($"{functionName}() call failed: {error}");
+                }
+
+                var boolResult = native.ToBoolean(state, -1);
+                native.Pop(state, 1);
+                return boolResult;
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException)
+            {
+                native.SetTop(state, 0);
+                throw new InvalidOperationException($"Error calling {functionName}(): {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Calls a Lua function that returns an integer value.
+        /// </summary>
+        /// <param name="functionName">The name of the Lua function to call.</param>
+        /// <returns>The integer result of the function call.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the function is not available or call fails.</exception>
+        /// <remarks>
+        /// <para>This is a utility method for calling parameterless Lua functions that return integer values.</para>
+        /// <para>Commonly used for getting numeric platform information and system values from CE.</para>
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// long moduleSize = Lua.CallIntegerFunction("getModuleSize");
+        /// long abi = Lua.CallIntegerFunction("getABI");
+        /// </code>
+        /// </example>
+        public long CallIntegerFunction(string functionName)
+        {
+            var lua = PluginContext.Lua;
+            var state = lua.State;
+            var native = lua.Native;
+
+            try
+            {
+                native.GetGlobal(state, functionName);
+                if (!native.IsFunction(state, -1))
+                {
+                    native.Pop(state, 1);
+                    throw new InvalidOperationException($"{functionName} function not available in this CE version");
+                }
+
+                var result = native.PCall(state, 0, 1);
+                if (result != 0)
+                {
+                    var error = native.ToString(state, -1);
+                    native.Pop(state, 1);
+                    throw new InvalidOperationException($"{functionName}() call failed: {error}");
+                }
+
+                var intResult = native.ToInteger(state, -1);
+                native.Pop(state, 1);
+                return intResult;
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException)
+            {
+                native.SetTop(state, 0);
+                throw new InvalidOperationException($"Error calling {functionName}(): {ex.Message}", ex);
+            }
+        }
     }
 }

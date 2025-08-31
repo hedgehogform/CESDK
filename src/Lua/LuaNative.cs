@@ -58,6 +58,9 @@ namespace CESDK.Lua
         private delegate void DelegatePushBoolean(IntPtr state, bool value);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int DelegateGetField(IntPtr state, int index, [MarshalAs(UnmanagedType.LPStr)] string key);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void DelegateCreateTable(IntPtr state, int arraySize, int recordSize);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -144,6 +147,7 @@ namespace CESDK.Lua
         private readonly DelegatePCall _pcall;
         private readonly DelegateLoadString _loadString;
         private readonly DelegateGetTable _getTable;
+        private readonly DelegateGetField _getField;
         private readonly DelegateSetTable _setTable;
         private readonly DelegatePushValue _pushValue;
         private readonly DelegatePushNil _pushNil;
@@ -187,6 +191,7 @@ namespace CESDK.Lua
             _pcall = GetDelegate<DelegatePCall>(luaModule, "lua_pcallk");
             _loadString = GetDelegate<DelegateLoadString>(luaModule, "luaL_loadstring");
             _getTable = GetDelegate<DelegateGetTable>(luaModule, "lua_gettable");
+            _getField = GetDelegate<DelegateGetField>(luaModule, "lua_getfield");
             _setTable = GetDelegate<DelegateSetTable>(luaModule, "lua_settable");
             _pushValue = GetDelegate<DelegatePushValue>(luaModule, "lua_pushvalue");
             _pushNil = GetDelegate<DelegatePushNil>(luaModule, "lua_pushnil");
@@ -537,6 +542,19 @@ namespace CESDK.Lua
         /// <para>If the key doesn't exist, nil is pushed onto the stack.</para>
         /// </remarks>
         public int GetTable(IntPtr state, int index) => _getTable(state, index);
+
+        /// <summary>
+        /// Gets a field from a table and pushes its value onto the stack.
+        /// </summary>
+        /// <param name="state">The Lua state.</param>
+        /// <param name="index">The stack index of the table.</param>
+        /// <param name="key">The field name to retrieve.</param>
+        /// <returns>The type of the pushed value.</returns>
+        /// <remarks>
+        /// <para>This function gets the value t[key] where t is the table at the given index.</para>
+        /// <para>The retrieved value is pushed onto the stack.</para>
+        /// </remarks>
+        public int GetField(IntPtr state, int index, string key) => _getField(state, index, key);
         
         /// <summary>
         /// Sets a value in a table using the key and value at the top of the stack.

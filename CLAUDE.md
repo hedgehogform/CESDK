@@ -21,43 +21,49 @@ dotnet clean
 
 ## Architecture
 
-The codebase follows a wrapper pattern where C# classes encapsulate Cheat Engine's Lua API functionality:
+The codebase follows a modern, clean architecture where C# classes provide type-safe access to Cheat Engine's Lua API:
 
 ### Core Components
 
-- **CESDK.cs** - Main plugin infrastructure that bridges between C# and CE's plugin system
-- **CESDKLua.cs** - Comprehensive Lua API wrapper providing C# delegates for all Lua functions
-- **CEObjectWrapper.cs** - Base class for CE object wrappers with automatic cleanup via destructors
-
-### Key Wrapper Classes
-
-- **Process.cs** - Process enumeration, opening processes by PID/name, process status management
-- **MemScan.cs** - Memory scanning with configurable scan types, value searches, and result management
-- **FoundList.cs** - Managing scan results and found memory addresses
-- **MemoryRead.cs / MemoryWrite.cs** - Memory read/write operations
-- **Disassembler.cs** - Assembly code analysis and disassembly
-- **ThreadList.cs** - Thread enumeration and management
-- **Address.cs** - Memory address utilities and conversions
-- **AOB.cs** - Array of Bytes pattern scanning
-
-### Plugin Development Pattern
-
-1. Inherit from `CESDKPluginClass`
-2. Implement `GetPluginName()`, `EnablePlugin()`, `DisablePlugin()`
-3. Use `CESDK.currentPlugin.sdk` to access the main SDK instance
-4. Access Lua functionality via `sdk.lua` for direct CE integration
+- **CESDK.cs** - Main plugin infrastructure and entry point for CE plugin system
+- **CheatEnginePlugin.cs** - Base plugin class for plugin development  
+- **PluginContext.cs** - Global context providing access to plugin services
 
 ### Lua Integration
 
-The architecture heavily relies on CE's Lua environment:
-- All CE objects are accessed through Lua function calls
-- C# delegates are registered with Lua for callback functionality  
-- Memory operations, scanning, and process management use CE's native Lua API
-- Error handling wraps Lua exceptions with C# exception types
+- **LuaEngine.cs** - High-level Lua scripting interface with C# method registration
+- **LuaNative.cs** - Low-level Lua C API wrapper for direct stack manipulation
+- **CEInterop.cs** - Core CE function imports and interop structures
 
-## Key Design Patterns
+### System Utilities
 
-- **Wrapper Pattern**: C# classes wrap CE's Lua objects with type safety
-- **RAII**: CEObjectWrapper ensures proper cleanup of CE objects via destructors
-- **Delegate Registration**: C# methods registered as Lua callbacks for events
-- **Plugin Architecture**: Single plugin instance pattern with global access via CESDK.currentPlugin
+- **SystemInfo.cs** - System information utilities (dark mode detection, OS detection)
+
+### Memory Management
+
+- **MemoryScanner.cs** - Memory scanning operations
+- **ScanConfiguration.cs** - Scan parameter configuration
+- **ScanResults.cs** - Scan result management
+- **ScanTypes.cs** - Memory scan type definitions
+
+### Plugin Development Pattern
+
+1. Inherit from `CheatEnginePlugin`
+2. Implement `GetName()`, `OnEnable()`, `OnDisable()` methods
+3. Access Lua functionality via `PluginContext.Lua`
+4. Use raw Lua state manipulation for advanced scenarios
+
+### Modern Lua Integration
+
+The architecture provides both high-level and low-level Lua access:
+- **High-level**: `LuaEngine` for script execution, function registration, and variable management
+- **Low-level**: `LuaNative` for direct Lua stack manipulation and advanced operations
+- **Type Safety**: All Lua interactions wrapped with proper error handling and stack management
+- **Plugin Context**: Global access to Lua engine through `PluginContext.Lua`
+
+### Key Design Patterns
+
+- **Clean Architecture**: Separation of concerns with dedicated namespaces (Core, Lua, System, Memory)
+- **Static Context**: Global plugin context accessible throughout the application
+- **Exception Safety**: Proper Lua stack cleanup and C# exception handling
+- **Modern C# Features**: Nullable reference types, pattern matching, and modern syntax
