@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using CESDK.Lua;
 
 namespace CESDK.Memory
@@ -269,7 +267,7 @@ namespace CESDK.Memory
         private List<ulong> LoadAddressesFromScan(IntPtr memScanObject)
         {
             var addresses = new List<ulong>();
-            
+
             try
             {
                 var state = _lua.State;
@@ -311,7 +309,7 @@ namespace CESDK.Memory
 
                     var address = (ulong)native.ToInteger(state, -1);
                     addresses.Add(address);
-                    
+
                     native.Pop(state, 3);
                 }
 

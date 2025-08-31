@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using CESDK.Lua;
-
 namespace CESDK.System
 {
     /// <summary>
@@ -521,7 +516,7 @@ namespace CESDK.System
         /// });
         /// </code>
         /// </example>
-        public static void SetBreakpoint(ulong address, int size = 1, BreakpointTrigger trigger = BreakpointTrigger.Execute, 
+        public static void SetBreakpoint(ulong address, int size = 1, BreakpointTrigger trigger = BreakpointTrigger.Execute,
             BreakpointMethod method = BreakpointMethod.Hardware, Action? onBreak = null)
         {
             try
@@ -539,19 +534,19 @@ namespace CESDK.System
 
                 // Push parameters
                 native.PushInteger(state, (long)address);
-                
+
                 if (trigger != BreakpointTrigger.Execute)
                 {
                     native.PushInteger(state, size);
                     native.PushInteger(state, (int)trigger);
                     native.PushInteger(state, (int)method);
-                    
+
                     if (onBreak != null)
                     {
                         // Register callback function
                         lua.RegisterFunction($"bp_callback_{address:X}", onBreak);
                         native.GetGlobal(state, $"bp_callback_{address:X}");
-                        
+
                         var result = native.PCall(state, 5, 0);
                         if (result != 0)
                         {
@@ -578,7 +573,7 @@ namespace CESDK.System
                         // Register callback function
                         lua.RegisterFunction($"bp_callback_{address:X}", onBreak);
                         native.GetGlobal(state, $"bp_callback_{address:X}");
-                        
+
                         var result = native.PCall(state, 2, 0);
                         if (result != 0)
                         {
@@ -746,7 +741,7 @@ namespace CESDK.System
 
                 // Read register values from global variables
                 var context = new RegisterContext();
-                
+
                 native.GetGlobal(state, "EAX");
                 if (native.IsNumber(state, -1))
                     context.EAX = (ulong)native.ToInteger(state, -1);

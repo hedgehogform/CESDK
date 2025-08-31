@@ -1,6 +1,4 @@
-using System;
 using System.Globalization;
-using CESDK.Lua;
 
 namespace CESDK.System
 {
@@ -251,7 +249,7 @@ namespace CESDK.System
             }
 
             Print($"ERROR: {exception.GetType().Name}: {exception.Message}");
-            
+
             if (includeStackTrace && !string.IsNullOrEmpty(exception.StackTrace))
             {
                 Print($"Stack Trace:\n{exception.StackTrace}");

@@ -1,5 +1,3 @@
-using System;
-
 namespace CESDK.Examples
 {
     /// <summary>
@@ -58,7 +56,7 @@ namespace CESDK.Examples
         private void ExampleFunction()
         {
             Console.WriteLine("Example function called from Lua!");
-            
+
             // You can access Lua here too
             Lua.SetGlobalString("plugin_status", "Function executed");
         }
@@ -66,7 +64,7 @@ namespace CESDK.Examples
         private int AdvancedFunction(IntPtr luaState)
         {
             var lua = Lua.Native;
-            
+
             Console.WriteLine("Advanced function called from Lua!");
             Console.WriteLine($"Lua stack has {lua.GetTop(luaState)} items");
 

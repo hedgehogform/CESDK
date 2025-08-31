@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.InteropServices;
 
 namespace CESDK.Lua
@@ -244,7 +243,7 @@ namespace CESDK.Lua
             {
                 var paramCount = _native.GetTop(state);
                 var parameters = new string[paramCount];
-                
+
                 // Convert all parameters to strings
                 for (int i = 1; i <= paramCount; i++)
                 {
@@ -252,16 +251,16 @@ namespace CESDK.Lua
                 }
 
                 var result = function(parameters);
-                
+
                 if (result != null)
                 {
                     _native.PushString(state, result);
                     return 1; // One return value
                 }
-                
+
                 return 0; // No return value
             };
-            
+
             _luaRegister(State, name, wrapper);
         }
 

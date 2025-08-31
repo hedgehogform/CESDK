@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.InteropServices;
 
 namespace CESDK.Lua
@@ -219,7 +218,7 @@ namespace CESDK.Lua
         }
 
         #region Public API
-        
+
         /// <summary>
         /// Gets the number of elements currently on the Lua stack.
         /// </summary>
@@ -229,7 +228,7 @@ namespace CESDK.Lua
         /// This is equivalent to the index of the top element. A stack with one element has top = 1.
         /// </remarks>
         public int GetTop(IntPtr state) => _getTop(state);
-        
+
         /// <summary>
         /// Sets the stack top to the specified index, effectively resizing the stack.
         /// </summary>
@@ -241,7 +240,7 @@ namespace CESDK.Lua
         /// <para>Use index 0 to clear the entire stack.</para>
         /// </remarks>
         public void SetTop(IntPtr state, int index) => _setTop(state, index);
-        
+
         /// <summary>
         /// Pops (removes) the specified number of elements from the top of the stack.
         /// </summary>
@@ -262,7 +261,7 @@ namespace CESDK.Lua
         /// If the global variable doesn't exist, nil is pushed onto the stack.
         /// </remarks>
         public int GetGlobal(IntPtr state, string name) => _getGlobal(state, name);
-        
+
         /// <summary>
         /// Sets the value at the top of the stack as a global variable.
         /// </summary>
@@ -282,34 +281,34 @@ namespace CESDK.Lua
         /// Lua creates an internal copy of the string, so the original can be safely modified or freed.
         /// </remarks>
         public void PushString(IntPtr state, string value) => _pushString(state, value);
-        
+
         /// <summary>
         /// Pushes an integer value onto the Lua stack.
         /// </summary>
         /// <param name="state">The Lua state pointer.</param>
         /// <param name="value">The integer value to push.</param>
         public void PushInteger(IntPtr state, long value) => _pushInteger(state, value);
-        
+
         /// <summary>
         /// Pushes a floating-point number onto the Lua stack.
         /// </summary>
         /// <param name="state">The Lua state pointer.</param>
         /// <param name="value">The floating-point value to push.</param>
         public void PushNumber(IntPtr state, double value) => _pushNumber(state, value);
-        
+
         /// <summary>
         /// Pushes a boolean value onto the Lua stack.
         /// </summary>
         /// <param name="state">The Lua state pointer.</param>
         /// <param name="value">The boolean value to push.</param>
         public void PushBoolean(IntPtr state, bool value) => _pushBoolean(state, value);
-        
+
         /// <summary>
         /// Pushes a nil value onto the Lua stack.
         /// </summary>
         /// <param name="state">The Lua state pointer.</param>
         public void PushNil(IntPtr state) => _pushNil(state);
-        
+
         /// <summary>
         /// Pushes a copy of the value at the specified index onto the top of the stack.
         /// </summary>
@@ -319,7 +318,7 @@ namespace CESDK.Lua
         /// The original value remains at its position - this creates a copy on top of the stack.
         /// </remarks>
         public void PushValue(IntPtr state, int index) => _pushValue(state, index);
-        
+
         /// <summary>
         /// Creates a new empty table and pushes it onto the stack.
         /// </summary>
@@ -338,7 +337,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>A Lua type constant (LUA_T* values).</returns>
         public int Type(IntPtr state, int index) => _type(state, index);
-        
+
         /// <summary>
         /// Checks if the value at the specified index is a string (or convertible to string).
         /// </summary>
@@ -346,7 +345,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a string or number (numbers are convertible to strings).</returns>
         public bool IsString(IntPtr state, int index) => _isString(state, index);
-        
+
         /// <summary>
         /// Checks if the value at the specified index is a number (or convertible to number).
         /// </summary>
@@ -354,7 +353,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a number or numeric string.</returns>
         public bool IsNumber(IntPtr state, int index) => _isNumber(state, index);
-        
+
         /// <summary>
         /// Checks if the value at the specified index is an integer.
         /// </summary>
@@ -362,7 +361,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is an integer number.</returns>
         public bool IsInteger(IntPtr state, int index) => _isInteger(state, index);
-        
+
         /// <summary>
         /// Checks if the value at the specified index is a boolean.
         /// </summary>
@@ -370,7 +369,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a boolean.</returns>
         public bool IsBoolean(IntPtr state, int index) => Type(state, index) == LUA_TBOOLEAN;
-        
+
         /// <summary>
         /// Checks if the value at the specified index is a function (Lua or C).
         /// </summary>
@@ -378,7 +377,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is any kind of function.</returns>
         public bool IsFunction(IntPtr state, int index) => Type(state, index) == LUA_TFUNCTION;
-        
+
         /// <summary>
         /// Checks if the value at the specified index is a C function.
         /// </summary>
@@ -386,7 +385,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a C function (not a Lua function).</returns>
         public bool IsCFunction(IntPtr state, int index) => _isCFunction(state, index);
-        
+
         /// <summary>
         /// Checks if the value at the specified index is userdata.
         /// </summary>
@@ -394,7 +393,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is userdata (light or heavy).</returns>
         public bool IsUserData(IntPtr state, int index) => _isUserData(state, index);
-        
+
         /// <summary>
         /// Checks if the value at the specified index is a table.
         /// </summary>
@@ -402,7 +401,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a table.</returns>
         public bool IsTable(IntPtr state, int index) => Type(state, index) == LUA_TTABLE;
-        
+
         /// <summary>
         /// Checks if the value at the specified index is nil.
         /// </summary>
@@ -410,7 +409,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is nil.</returns>
         public bool IsNil(IntPtr state, int index) => Type(state, index) == LUA_TNIL;
-        
+
         /// <summary>
         /// Checks if the value at the specified index is a thread (coroutine).
         /// </summary>
@@ -418,7 +417,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a thread.</returns>
         public bool IsThread(IntPtr state, int index) => Type(state, index) == LUA_TTHREAD;
-        
+
         /// <summary>
         /// Checks if the specified index is not valid (beyond the stack).
         /// </summary>
@@ -426,7 +425,7 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the index refers to a non-existent stack position.</returns>
         public bool IsNone(IntPtr state, int index) => Type(state, index) == LUA_TNONE;
-        
+
         /// <summary>
         /// Checks if the value at the specified index is nil or the index is invalid.
         /// </summary>
@@ -464,7 +463,7 @@ namespace CESDK.Lua
         /// Numbers and numeric strings are converted to integers. Other types return 0.
         /// </remarks>
         public long ToInteger(IntPtr state, int index) => _toInteger(state, index);
-        
+
         /// <summary>
         /// Converts the value at the specified index to a floating-point number.
         /// </summary>
@@ -475,7 +474,7 @@ namespace CESDK.Lua
         /// Numbers and numeric strings are converted to doubles. Other types return 0.0.
         /// </remarks>
         public double ToNumber(IntPtr state, int index) => _toNumber(state, index);
-        
+
         /// <summary>
         /// Converts the value at the specified index to a boolean.
         /// </summary>
@@ -486,7 +485,7 @@ namespace CESDK.Lua
         /// In Lua, only nil and false are considered false. All other values (including 0) are true.
         /// </remarks>
         public bool ToBoolean(IntPtr state, int index) => _toBoolean(state, index);
-        
+
         /// <summary>
         /// Gets the raw userdata pointer at the specified index.
         /// </summary>
@@ -560,7 +559,7 @@ namespace CESDK.Lua
         /// <para>The retrieved value is pushed onto the stack.</para>
         /// </remarks>
         public int GetField(IntPtr state, int index, string key) => _getField(state, index, key);
-        
+
         /// <summary>
         /// Sets a value in a table using the key and value at the top of the stack.
         /// </summary>
@@ -583,7 +582,7 @@ namespace CESDK.Lua
         /// <para>For n=1, the top element moves down and others move up one position.</para>
         /// </remarks>
         public void Rotate(IntPtr state, int index, int n) => _rotate(state, index, n);
-        
+
         /// <summary>
         /// Copies a value from one stack position to another.
         /// </summary>
@@ -594,7 +593,7 @@ namespace CESDK.Lua
         /// The value at the destination is overwritten without affecting other stack positions.
         /// </remarks>
         public void Copy(IntPtr state, int fromIndex, int toIndex) => _copy(state, fromIndex, toIndex);
-        
+
         /// <summary>
         /// Gets the raw length of a value (for strings, tables, and userdata).
         /// </summary>
@@ -616,7 +615,7 @@ namespace CESDK.Lua
         /// Elements above the removed index are shifted down to fill the gap.
         /// </remarks>
         public void Remove(IntPtr state, int index) { Rotate(state, index, -1); Pop(state, 1); }
-        
+
         /// <summary>
         /// Moves the top element to the specified position, shifting other elements up.
         /// </summary>
@@ -626,7 +625,7 @@ namespace CESDK.Lua
         /// The top element is moved to the specified position, and elements at or above that position are shifted up.
         /// </remarks>
         public void Insert(IntPtr state, int index) => Rotate(state, index, 1);
-        
+
         /// <summary>
         /// Replaces the value at the specified index with the value at the top of the stack.
         /// </summary>
@@ -647,7 +646,7 @@ namespace CESDK.Lua
         /// Heavy userdata is allocated by Lua and can have metatables and finalizers.
         /// </remarks>
         public bool IsHeavyUserData(IntPtr state, int index) => Type(state, index) == LUA_TUSERDATA;
-        
+
         /// <summary>
         /// Checks if the value at the specified index is light userdata (just a pointer).
         /// </summary>
@@ -658,7 +657,7 @@ namespace CESDK.Lua
         /// Light userdata is just a C pointer value and cannot have metatables.
         /// </remarks>
         public bool IsLightUserData(IntPtr state, int index) => Type(state, index) == LUA_TLIGHTUSERDATA;
-        
+
         /// <summary>
         /// Checks if the value at the specified index is a Cheat Engine object.
         /// </summary>
@@ -685,7 +684,7 @@ namespace CESDK.Lua
             var userData = ToUserData(state, index);
             if (userData == IntPtr.Zero)
                 return IntPtr.Zero;
-            
+
             // CE objects are stored as pointers inside userdata
             return Marshal.ReadIntPtr(userData);
         }

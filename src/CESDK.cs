@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using System.Runtime.InteropServices;
 using CESDK.Core;
 using CESDK.Lua;
@@ -49,27 +47,24 @@ namespace CESDK
             try
             {
                 if (mainself == null) return false;
-                
+
                 mainself.pluginexports = exportedFunctions;
 
                 // Setup the delegates for CE functions
-                if (delProcessMessages == null)
-                    delProcessMessages = Marshal.GetDelegateForFunctionPointer<DelegateProcessMessages>(exportedFunctions.ProcessMessages);
+                delProcessMessages ??= Marshal.GetDelegateForFunctionPointer<DelegateProcessMessages>(exportedFunctions.ProcessMessages);
 
-                if (delCheckSynchronize == null)
-                    delCheckSynchronize = Marshal.GetDelegateForFunctionPointer<DelegateCheckSynchronize>(exportedFunctions.CheckSynchronize);
+                delCheckSynchronize ??= Marshal.GetDelegateForFunctionPointer<DelegateCheckSynchronize>(exportedFunctions.CheckSynchronize);
 
-                if (mainself.lua == null)
-                    mainself.lua = new LuaEngine(exportedFunctions);
+                mainself.lua ??= new LuaEngine(exportedFunctions);
 
                 PluginContext.Initialize(mainself.lua);
-                
+
                 currentPlugin?.InternalOnEnable();
                 return true;
             }
             catch (Exception ex)
             {
-                System.Console.WriteLine($"[CESDK] EnablePlugin failed: {ex}");
+                // System.Console.WriteLine($"[CESDK] EnablePlugin failed: {ex}");
                 return false;
             }
         }
@@ -84,7 +79,7 @@ namespace CESDK
             }
             catch (Exception ex)
             {
-                System.Console.WriteLine($"[CESDK] DisablePlugin failed: {ex}");
+                // System.Console.WriteLine($"[CESDK] DisablePlugin failed: {ex}");
                 return false;
             }
         }
@@ -106,14 +101,13 @@ namespace CESDK
         {
             try
             {
-                if (mainself == null)
-                    mainself = new CESDK();
+                mainself ??= new CESDK();
 
                 if (PluginNamePtr == IntPtr.Zero)
                 {
                     // Search for plugin using legacy pattern
                     var types = typeof(CheatEnginePlugin).Assembly.GetTypes();
-                    
+
                     for (int i = 0; i < types.Length; i++)
                     {
                         if (types[i].IsSubclassOf(typeof(CheatEnginePlugin)) && !types[i].IsAbstract)
@@ -144,7 +138,7 @@ namespace CESDK
             }
             catch (Exception ex)
             {
-                System.Console.WriteLine($"[CESDK] CEPluginInitialize failed: {ex}");
+                // System.Console.WriteLine($"[CESDK] CEPluginInitialize failed: {ex}");
                 return 0;
             }
         }
