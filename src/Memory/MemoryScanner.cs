@@ -407,7 +407,7 @@ namespace CESDK.Memory
             });
 
             // Register OnGuiUpdate callback  
-            _lua.RegisterRawFunction("__memscan_progress_" + memScanObject.ToInt64(), (IntPtr luaState) =>
+            _lua.RegisterRawFunction("__memscan_progress_" + memScanObject.ToInt64(), luaState =>
             {
                 var native = _lua.Native;
                 if (native.GetTop(luaState) >= 4)
