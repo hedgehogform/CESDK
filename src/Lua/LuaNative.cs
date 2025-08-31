@@ -125,6 +125,9 @@ namespace CESDK.Lua
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate IntPtr DelegateToUserData(IntPtr state, int index);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int DelegateNext(IntPtr state, int index);
         #endregion
 
         #region Function Pointers
@@ -159,6 +162,7 @@ namespace CESDK.Lua
         private readonly DelegateRawLen _rawLen;
         private readonly DelegateCall _call;
         private readonly DelegateToUserData _toUserData;
+        private readonly DelegateNext _next;
         #endregion
 
         public LuaNative()
@@ -203,6 +207,7 @@ namespace CESDK.Lua
             _rawLen = GetDelegate<DelegateRawLen>(luaModule, "lua_rawlen");
             _call = GetDelegate<DelegateCall>(luaModule, "lua_callk");
             _toUserData = GetDelegate<DelegateToUserData>(luaModule, "lua_touserdata");
+            _next = GetDelegate<DelegateNext>(luaModule, "lua_next");
         }
 
         private T GetDelegate<T>(IntPtr module, string functionName) where T : class
@@ -684,6 +689,36 @@ namespace CESDK.Lua
             // CE objects are stored as pointers inside userdata
             return Marshal.ReadIntPtr(userData);
         }
+
+        /// <summary>
+        /// Pops a key from the stack and pushes a key-value pair from the table at the given index.
+        /// </summary>
+        /// <param name="state">The Lua state pointer.</param>
+        /// <param name="index">The stack index of the table to traverse.</param>
+        /// <returns>Non-zero if there are more keys to iterate, zero if iteration is complete.</returns>
+        /// <remarks>
+        /// <para>This function is used for table iteration. The key should be at the top of the stack.</para>
+        /// <para>If the function returns non-zero, both key and value are left on the stack (key at -2, value at -1).</para>
+        /// <para>If the function returns zero, nothing is pushed and the stack is unchanged.</para>
+        /// <para>To start iteration, push nil onto the stack before the first call.</para>
+        /// <para>During iteration, do not call ToString on the key unless you know it is a string.</para>
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Table iteration example
+        /// native.PushNil(state);  // First key
+        /// while (native.Next(state, -2))  // -2 is table index
+        /// {
+        ///     // Key is at -2, value is at -1
+        ///     var key = native.ToString(state, -2);
+        ///     var value = native.ToString(state, -1);
+        ///     Console.WriteLine($"{key} = {value}");
+        ///     
+        ///     native.Pop(state, 1);  // Remove value, keep key for next iteration
+        /// }
+        /// </code>
+        /// </example>
+        public int Next(IntPtr state, int index) => _next(state, index);
         #endregion
     }
 }
