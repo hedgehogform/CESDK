@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.InteropServices;
-using CESDK.Core;
 
 namespace CESDK.Lua
 {
@@ -31,7 +30,7 @@ namespace CESDK.Lua
     /// </example>
     public class LuaEngine
     {
-        private readonly PluginCore.TExportedFunctions _exports;
+        private readonly Core.TExportedFunctions _exports;
         private readonly LuaNative _native;
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -61,7 +60,7 @@ namespace CESDK.Lua
         /// <returns>The number of return values pushed onto the Lua stack.</returns>
         public delegate int LuaFunctionRaw(IntPtr state);
 
-        internal LuaEngine(PluginCore.TExportedFunctions exports)
+        internal LuaEngine(Core.TExportedFunctions exports)
         {
             _exports = exports;
             _getLuaState = Marshal.GetDelegateForFunctionPointer<DelegateGetLuaState>(exports.GetLuaState);

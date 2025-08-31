@@ -1,5 +1,4 @@
 using System;
-using CESDK.Core;
 using CESDK.Lua;
 
 namespace CESDK
@@ -10,7 +9,6 @@ namespace CESDK
     public static class PluginContext
     {
         private static LuaEngine? _lua;
-        private static PluginManager? _manager;
 
         /// <summary>
         /// Access to the Lua engine
@@ -20,10 +18,9 @@ namespace CESDK
         /// <summary>
         /// Initialize the plugin context (internal use only)
         /// </summary>
-        internal static void Initialize(LuaEngine lua, PluginManager manager)
+        internal static void Initialize(LuaEngine lua)
         {
             _lua = lua ?? throw new ArgumentNullException(nameof(lua));
-            _manager = manager ?? throw new ArgumentNullException(nameof(manager));
         }
 
         /// <summary>
@@ -32,7 +29,6 @@ namespace CESDK
         internal static void Cleanup()
         {
             _lua = null;
-            _manager = null;
         }
 
         /// <summary>
@@ -40,7 +36,7 @@ namespace CESDK
         /// </summary>
         public static void ProcessMessages()
         {
-            _manager?.ProcessMessages();
+            CESDK.ProcessMessages();
         }
 
         /// <summary>
@@ -50,7 +46,7 @@ namespace CESDK
         /// <returns>True if synchronization occurred</returns>
         public static bool CheckSynchronize(int timeout)
         {
-            return _manager?.CheckSynchronize(timeout) ?? false;
+            return CESDK.CheckSynchronize(timeout);
         }
     }
 }

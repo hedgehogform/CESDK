@@ -6,6 +6,8 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 
     <!-- NuGet Package Metadata -->
     <PackageId>CheatEngine.SDK</PackageId>
@@ -33,6 +35,12 @@
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="legacy\**" />
+    <EmbeddedResource Remove="legacy\**" />
+    <None Remove="legacy\**" />
   </ItemGroup>
 
 </Project>

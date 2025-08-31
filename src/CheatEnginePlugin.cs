@@ -191,5 +191,6 @@ namespace CESDK
         /// </code>
         /// </example>
         protected bool CheckSynchronize(int timeout) => PluginContext.CheckSynchronize(timeout);
+
     }
 }

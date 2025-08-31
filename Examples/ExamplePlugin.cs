@@ -20,7 +20,7 @@ namespace CESDK.Examples
             Lua.RegisterFunction("example_function", ExampleFunction);
 
             // Register a function with Lua state access
-            Lua.RegisterFunction("advanced_function", AdvancedFunction);
+            Lua.RegisterRawFunction("advanced_function", AdvancedFunction);
 
             // Set up a menu in CE
             Lua.Execute(@"
@@ -32,8 +32,8 @@ namespace CESDK.Examples
                 local menuItem = createMenuItem(menu)
                 menuItem.Caption = 'Test Function'
                 menuItem.OnClick = function(sender)
-                    local result = example_function()
-                    print('Example function returned: ' .. result)
+                    example_function()
+                    print('Example function executed, status: ' .. plugin_status)
                 end
                 topMenu.add(menuItem)
 
@@ -55,14 +55,12 @@ namespace CESDK.Examples
             // Clean up resources here if needed
         }
 
-        private int ExampleFunction()
+        private void ExampleFunction()
         {
             Console.WriteLine("Example function called from Lua!");
             
             // You can access Lua here too
             Lua.SetGlobalString("plugin_status", "Function executed");
-            
-            return 1; // Number of return values for Lua
         }
 
         private int AdvancedFunction(IntPtr luaState)
