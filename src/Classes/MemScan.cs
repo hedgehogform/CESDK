@@ -1,5 +1,6 @@
 using System;
 using CESDK.Lua;
+using CESDK.Utils;
 
 namespace CESDK.Classes
 {
@@ -27,27 +28,12 @@ namespace CESDK.Classes
         {
             try
             {
-                lua.GetGlobal("createMemScan");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new MemScanException("createMemScan function not available in this CE version");
-                }
-
-                var result = lua.PCall(0, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new MemScanException($"createMemScan() call failed: {error}");
-                }
-
-                // MemScan object is now on top of stack - keep it there for future use
+                LuaUtils.CallLuaFunction("createMemScan", "create MemScan object", () => { /* MemScan object left on stack */ return true; });
                 _memScanObjectCreated = true;
             }
-            catch (Exception ex) when (ex is not MemScanException)
+            catch (InvalidOperationException ex)
             {
-                throw new MemScanException("Failed to create MemScan object", ex);
+                throw new MemScanException(ex.Message, ex);
             }
         }
 
@@ -58,10 +44,9 @@ namespace CESDK.Classes
         }
 
         /// <summary>
-        /// Performs an initial memory scan
+        /// Calls a method on the MemScan Lua object with parameters
         /// </summary>
-        /// <param name="parameters">Scan parameters</param>
-        public void FirstScan(ScanParameters parameters)
+        private void CallMemScanMethod(string methodName, string operationName, params object[] parameters)
         {
             try
             {
@@ -70,48 +55,130 @@ namespace CESDK.Classes
                 // Push MemScan object
                 lua.PushValue(-1);
 
-                // Get firstScan method
-                lua.GetField(-1, "firstScan");
+                // Get method
+                lua.GetField(-1, methodName);
                 if (!lua.IsFunction(-1))
                 {
                     lua.Pop(2);
-                    throw new MemScanException("firstScan method not available on MemScan object");
+                    throw new InvalidOperationException($"{methodName} method not available on MemScan object");
                 }
 
                 // Push self (MemScan object)
                 lua.PushValue(-2);
 
-                // Push all parameters
-                lua.PushInteger((int)parameters.ScanOption);
-                lua.PushInteger((int)(parameters.VarType ?? VariableType.vtDword));
-                lua.PushInteger((int)parameters.RoundingType);
-                lua.PushString(parameters.Input1);
-                lua.PushString(parameters.Input2);
-                lua.PushInteger((long)parameters.StartAddress);
-                lua.PushInteger((long)parameters.StopAddress);
-                lua.PushString(parameters.ProtectionFlags);
-                lua.PushInteger((int)parameters.AlignmentType);
-                lua.PushString(parameters.AlignmentParam);
-                lua.PushBoolean(parameters.IsHexadecimalInput);
-                lua.PushBoolean(parameters.IsNotABinaryString);
-                lua.PushBoolean(parameters.IsUnicodeScan);
-                lua.PushBoolean(parameters.IsCaseSensitive);
+                // Push parameters
+                foreach (var param in parameters)
+                {
+                    PushParameter(param);
+                }
 
-                // Call firstScan(self, scanOption, varType, roundingType, input1, input2, startAddress, stopAddress, protectionFlags, alignmentType, alignmentParam, isHexadecimalInput, isNotABinaryString, isUnicodeScan, isCaseSensitive)
-                var result = lua.PCall(15, 0);
+                // Call method
+                var result = lua.PCall(1 + parameters.Length, 0);
                 if (result != 0)
                 {
                     var error = lua.ToString(-1);
                     lua.Pop(1);
-                    throw new MemScanException($"firstScan() call failed: {error}");
+                    throw new InvalidOperationException($"{methodName}() call failed: {error}");
                 }
 
                 lua.Pop(1); // Pop MemScan object copy
             }
-            catch (Exception ex) when (ex is not MemScanException)
+            catch (InvalidOperationException)
             {
-                throw new MemScanException("Failed to perform first scan", ex);
+                throw;
             }
+            catch (Exception ex)
+            {
+                throw new MemScanException($"Failed to {operationName}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Calls a method on the MemScan Lua object that returns a value
+        /// </summary>
+        private T CallMemScanMethod<T>(string methodName, string operationName, Func<T> valueExtractor, params object[] parameters)
+        {
+            try
+            {
+                EnsureMemScanObject();
+
+                // Push MemScan object
+                lua.PushValue(-1);
+
+                // Get method
+                lua.GetField(-1, methodName);
+                if (!lua.IsFunction(-1))
+                {
+                    lua.Pop(2);
+                    throw new InvalidOperationException($"{methodName} method not available on MemScan object");
+                }
+
+                // Push self (MemScan object)
+                lua.PushValue(-2);
+
+                // Push parameters
+                foreach (var param in parameters)
+                {
+                    PushParameter(param);
+                }
+
+                // Call method
+                var result = lua.PCall(1 + parameters.Length, 1);
+                if (result != 0)
+                {
+                    var error = lua.ToString(-1);
+                    lua.Pop(1);
+                    throw new InvalidOperationException($"{methodName}() call failed: {error}");
+                }
+
+                var value = valueExtractor();
+                lua.Pop(1); // Pop MemScan object copy
+                return value;
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new MemScanException($"Failed to {operationName}", ex);
+            }
+        }
+
+        private void PushParameter(object parameter)
+        {
+            switch (parameter)
+            {
+                case int intValue: lua.PushInteger(intValue); break;
+                case long longValue: lua.PushInteger(longValue); break;
+                case ulong ulongValue: lua.PushInteger((long)ulongValue); break;
+                case string stringValue: lua.PushString(stringValue); break;
+                case bool boolValue: lua.PushBoolean(boolValue); break;
+                default: throw new ArgumentException($"Unsupported parameter type: {parameter.GetType()}");
+            }
+        }
+
+        /// <summary>
+        /// Performs an initial memory scan
+        /// </summary>
+        /// <param name="parameters">Scan parameters</param>
+        public void FirstScan(ScanParameters parameters)
+        {
+            CallMemScanMethod("firstScan", "perform first scan",
+                (int)parameters.ScanOption,
+                (int)(parameters.VarType ?? VariableType.vtDword),
+                (int)parameters.RoundingType,
+                parameters.Input1,
+                parameters.Input2,
+                (long)parameters.StartAddress,
+                (long)parameters.StopAddress,
+                parameters.ProtectionFlags,
+                (int)parameters.AlignmentType,
+                parameters.AlignmentParam,
+                parameters.IsHexadecimalInput,
+                parameters.IsNotABinaryString,
+                parameters.IsUnicodeScan,
+                parameters.IsCaseSensitive);
         }
 
         /// <summary>
@@ -120,6 +187,27 @@ namespace CESDK.Classes
         /// <param name="parameters">Scan parameters</param>
         public void NextScan(ScanParameters parameters)
         {
+            var args = new object[]
+            {
+                (int)parameters.ScanOption,
+                (int)parameters.RoundingType,
+                parameters.Input1,
+                parameters.Input2,
+                parameters.IsHexadecimalInput,
+                parameters.IsNotABinaryString,
+                parameters.IsUnicodeScan,
+                parameters.IsCaseSensitive,
+                parameters.IsPercentageScan
+            };
+
+            if (!string.IsNullOrEmpty(parameters.SavedResultName))
+            {
+                var argsWithName = new object[args.Length + 1];
+                Array.Copy(args, argsWithName, args.Length);
+                argsWithName[args.Length] = parameters.SavedResultName;
+                args = argsWithName;
+            }
+
             try
             {
                 EnsureMemScanObject();
@@ -127,43 +215,39 @@ namespace CESDK.Classes
                 // Push MemScan object
                 lua.PushValue(-1);
 
-                // Get nextScan method
+                // Get method
                 lua.GetField(-1, "nextScan");
                 if (!lua.IsFunction(-1))
                 {
                     lua.Pop(2);
-                    throw new MemScanException("nextScan method not available on MemScan object");
+                    throw new InvalidOperationException("nextScan method not available on MemScan object");
                 }
 
                 // Push self (MemScan object)
                 lua.PushValue(-2);
 
-                // Push all parameters
-                lua.PushInteger((int)parameters.ScanOption);
-                lua.PushInteger((int)parameters.RoundingType);
-                lua.PushString(parameters.Input1);
-                lua.PushString(parameters.Input2);
-                lua.PushBoolean(parameters.IsHexadecimalInput);
-                lua.PushBoolean(parameters.IsNotABinaryString);
-                lua.PushBoolean(parameters.IsUnicodeScan);
-                lua.PushBoolean(parameters.IsCaseSensitive);
-                lua.PushBoolean(parameters.IsPercentageScan);
-                if (!string.IsNullOrEmpty(parameters.SavedResultName))
-                    lua.PushString(parameters.SavedResultName);
+                // Push parameters
+                foreach (var param in args)
+                {
+                    PushParameter(param);
+                }
 
-                // Call nextScan
-                var paramCount = string.IsNullOrEmpty(parameters.SavedResultName) ? 10 : 11;
-                var result = lua.PCall(paramCount, 0);
+                // Call method
+                var result = lua.PCall(1 + args.Length, 0);
                 if (result != 0)
                 {
                     var error = lua.ToString(-1);
                     lua.Pop(1);
-                    throw new MemScanException($"nextScan() call failed: {error}");
+                    throw new InvalidOperationException($"nextScan() call failed: {error}");
                 }
 
                 lua.Pop(1); // Pop MemScan object copy
             }
-            catch (Exception ex) when (ex is not MemScanException)
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
             {
                 throw new MemScanException("Failed to perform next scan", ex);
             }
@@ -174,39 +258,7 @@ namespace CESDK.Classes
         /// </summary>
         public void WaitTillDone()
         {
-            try
-            {
-                EnsureMemScanObject();
-
-                // Push MemScan object
-                lua.PushValue(-1);
-
-                // Get waitTillDone method
-                lua.GetField(-1, "waitTillDone");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new MemScanException("waitTillDone method not available on MemScan object");
-                }
-
-                // Push self (MemScan object)
-                lua.PushValue(-2);
-
-                // Call waitTillDone(self)
-                var result = lua.PCall(1, 0);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new MemScanException($"waitTillDone() call failed: {error}");
-                }
-
-                lua.Pop(1); // Pop MemScan object copy
-            }
-            catch (Exception ex) when (ex is not MemScanException)
-            {
-                throw new MemScanException("Failed to wait for scan completion", ex);
-            }
+            CallMemScanMethod("waitTillDone", "wait for scan completion");
         }
 
         /// <summary>
@@ -215,40 +267,7 @@ namespace CESDK.Classes
         /// <param name="name">Name to save results under</param>
         public void SaveCurrentResults(string name)
         {
-            try
-            {
-                EnsureMemScanObject();
-
-                // Push MemScan object
-                lua.PushValue(-1);
-
-                // Get saveCurrentResults method
-                lua.GetField(-1, "saveCurrentResults");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new MemScanException("saveCurrentResults method not available on MemScan object");
-                }
-
-                // Push self (MemScan object)
-                lua.PushValue(-2);
-                lua.PushString(name);
-
-                // Call saveCurrentResults(self, name)
-                var result = lua.PCall(2, 0);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new MemScanException($"saveCurrentResults() call failed: {error}");
-                }
-
-                lua.Pop(1); // Pop MemScan object copy
-            }
-            catch (Exception ex) when (ex is not MemScanException)
-            {
-                throw new MemScanException("Failed to save current results", ex);
-            }
+            CallMemScanMethod("saveCurrentResults", "save current results", name);
         }
 
         /// <summary>
@@ -257,51 +276,19 @@ namespace CESDK.Classes
         /// <returns>FoundList object or null if none attached</returns>
         public FoundList GetAttachedFoundList()
         {
-            try
+            return CallMemScanMethod("getAttachedFoundlist", "get attached found list", () =>
             {
-                EnsureMemScanObject();
-
-                // Push MemScan object
-                lua.PushValue(-1);
-
-                // Get getAttachedFoundlist method
-                lua.GetField(-1, "getAttachedFoundlist");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new MemScanException("getAttachedFoundlist method not available on MemScan object");
-                }
-
-                // Push self (MemScan object)
-                lua.PushValue(-2);
-
-                // Call getAttachedFoundlist(self)
-                var result = lua.PCall(1, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new MemScanException($"getAttachedFoundlist() call failed: {error}");
-                }
-
                 // Check if result is nil
                 if (lua.IsNil(-1))
                 {
-                    lua.Pop(2); // Pop nil and MemScan object copy
                     return null;
                 }
 
                 // Create FoundList wrapper and initialize it with the Lua object on the stack
                 var foundList = new FoundList();
                 foundList.InitializeWithLuaObject();
-                lua.Pop(1); // Pop MemScan object copy, leave FoundList object on stack for foundList to use
-
                 return foundList;
-            }
-            catch (Exception ex) when (ex is not MemScanException)
-            {
-                throw new MemScanException("Failed to get attached found list", ex);
-            }
+            });
         }
     }
 

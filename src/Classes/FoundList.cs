@@ -1,5 +1,6 @@
 using System;
 using CESDK.Lua;
+using CESDK.Utils;
 
 namespace CESDK.Classes
 {
@@ -27,7 +28,6 @@ namespace CESDK.Classes
         {
             lua = PluginContext.Lua;
         }
-
 
         /// <summary>
         /// Internal method to initialize with an existing FoundList Lua object on the stack
@@ -91,41 +91,113 @@ namespace CESDK.Classes
         }
 
         /// <summary>
-        /// Initializes the FoundList for reading results. Call this when a MemScan has finished scanning.
+        /// Calls a method on the FoundList Lua object
         /// </summary>
-        public void Initialize()
+        private void CallFoundListMethod(string methodName, string operationName)
         {
             try
             {
                 PushFoundListObject();
 
-                // Get initialize method
-                lua.GetField(-1, "initialize");
+                // Get method
+                lua.GetField(-1, methodName);
                 if (!lua.IsFunction(-1))
                 {
                     lua.Pop(2);
-                    throw new FoundListException("initialize method not available on FoundList object");
+                    throw new FoundListException($"{methodName} method not available on FoundList object");
                 }
 
                 // Push self (FoundList object)
                 lua.PushValue(-2);
 
-                // Call initialize(self)
+                // Call method(self)
                 var result = lua.PCall(1, 0);
                 if (result != 0)
                 {
                     var error = lua.ToString(-1);
                     lua.Pop(1);
-                    throw new FoundListException($"initialize() call failed: {error}");
+                    throw new FoundListException($"{methodName}() call failed: {error}");
                 }
 
                 lua.Pop(1); // Pop FoundList object
-                _initialized = true;
             }
             catch (Exception ex) when (ex is not FoundListException)
             {
-                throw new FoundListException("Failed to initialize FoundList", ex);
+                throw new FoundListException($"Failed to {operationName}", ex);
             }
+        }
+
+        /// <summary>
+        /// Gets a value from FoundList using property or method fallback
+        /// </summary>
+        private T GetFoundListValue<T>(string propertyName, string methodName, int? index, Func<T> valueExtractor, T defaultValue, string operationName)
+        {
+            try
+            {
+                PushFoundListObject();
+
+                // Try property access first
+                lua.GetField(-1, propertyName);
+
+                if (!lua.IsNil(-1))
+                {
+                    if (index.HasValue)
+                    {
+                        lua.PushInteger(index.Value);
+                        lua.GetTable(-2);
+                    }
+                    
+                    if (!lua.IsNil(-1))
+                    {
+                        var value = valueExtractor();
+                        lua.Pop(index.HasValue ? 3 : 2); // Pop value, property (and FoundList object)
+                        return value;
+                    }
+                    lua.Pop(1); // Pop nil value
+                }
+
+                // If property doesn't exist or returned nil, try method
+                lua.Pop(1); // Pop property (or nil)
+                lua.GetField(-1, methodName);
+                if (!lua.IsFunction(-1))
+                {
+                    lua.Pop(2);
+                    return defaultValue; // Return default instead of throwing for count
+                }
+
+                // Push self (FoundList object)
+                lua.PushValue(-2);
+                if (index.HasValue)
+                {
+                    lua.PushInteger(index.Value);
+                }
+
+                // Call method
+                var paramCount = index.HasValue ? 2 : 1;
+                var result = lua.PCall(paramCount, 1);
+                if (result != 0)
+                {
+                    lua.Pop(2); // Pop error and FoundList object
+                    return defaultValue;
+                }
+
+                var methodValue = valueExtractor();
+                lua.Pop(2); // Pop value and FoundList object
+                return methodValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        /// <summary>
+        /// Initializes the FoundList for reading results. Call this when a MemScan has finished scanning.
+        /// </summary>
+        public void Initialize()
+        {
+            CallFoundListMethod("initialize", "initialize FoundList");
+            _initialized = true;
         }
 
         /// <summary>
@@ -133,88 +205,16 @@ namespace CESDK.Classes
         /// </summary>
         public void Deinitialize()
         {
-            try
-            {
-                PushFoundListObject();
-
-                // Get deinitialize method
-                lua.GetField(-1, "deinitialize");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new FoundListException("deinitialize method not available on FoundList object");
-                }
-
-                // Push self (FoundList object)
-                lua.PushValue(-2);
-
-                // Call deinitialize(self)
-                var result = lua.PCall(1, 0);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new FoundListException($"deinitialize() call failed: {error}");
-                }
-
-                lua.Pop(1); // Pop FoundList object
-                _initialized = false;
-            }
-            catch (Exception ex) when (ex is not FoundListException)
-            {
-                throw new FoundListException("Failed to deinitialize FoundList", ex);
-            }
+            CallFoundListMethod("deinitialize", "deinitialize FoundList");
+            _initialized = false;
         }
 
         /// <summary>
         /// Gets the number of results found
         /// </summary>
         /// <returns>Number of results, or -1 if count cannot be retrieved</returns>
-        public int GetCount()
-        {
-            try
-            {
-                PushFoundListObject();
-
-                // Try property access first
-                lua.GetField(-1, "Count");
-
-                if (!lua.IsNil(-1))
-                {
-                    var count = lua.ToInteger(-1);
-                    lua.Pop(2); // Pop count and FoundList object
-                    return count;
-                }
-
-                // If property doesn't exist, try method
-                lua.Pop(1); // Pop nil
-                lua.GetField(-1, "getCount");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    return -1; // Return -1 to indicate failure instead of throwing
-                }
-
-                // Push self (FoundList object)
-                lua.PushValue(-2);
-
-                // Call getCount(self)
-                var result = lua.PCall(1, 1);
-                if (result != 0)
-                {
-                    lua.Pop(2); // Pop error and FoundList object
-                    return -1; // Return -1 to indicate failure instead of throwing
-                }
-
-                var countFromMethod = lua.ToInteger(-1);
-                lua.Pop(2); // Pop count and FoundList object
-                return countFromMethod;
-            }
-            catch
-            {
-                return -1; // Return -1 to indicate failure instead of throwing
-            }
-        }
+        public int GetCount() =>
+            GetFoundListValue("Count", "getCount", null, () => lua.ToInteger(-1), -1, "get count");
 
         /// <summary>
         /// Gets the number of results found (safe property that doesn't throw)
@@ -230,45 +230,10 @@ namespace CESDK.Classes
         {
             try
             {
-                PushFoundListObject();
-
-                // Try property access first (Address[index])
-                lua.GetField(-1, "Address");
-
-                if (!lua.IsNil(-1))
-                {
-                    lua.PushInteger(index);
-                    lua.GetTable(-2);
-                    var address = lua.ToString(-1);
-                    lua.Pop(3); // Pop address, Address table, and FoundList object
-                    return address ?? "";
-                }
-
-                // If property doesn't exist, try method
-                lua.Pop(1); // Pop nil
-                lua.GetField(-1, "getAddress");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new FoundListException("Address property and getAddress method not available on FoundList object");
-                }
-
-                // Push self (FoundList object) and index
-                lua.PushValue(-2);
-                lua.PushInteger(index);
-
-                // Call getAddress(self, index)
-                var result = lua.PCall(2, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new FoundListException($"getAddress({index}) call failed: {error}");
-                }
-
-                var addressFromMethod = lua.ToString(-1);
-                lua.Pop(2); // Pop address and FoundList object
-                return addressFromMethod ?? "";
+                var result = GetFoundListValue("Address", "getAddress", index, () => lua.ToString(-1) ?? "", "", $"get address at index {index}");
+                if (!string.IsNullOrEmpty(result)) return result;
+                
+                throw new FoundListException("Address property and getAddress method not available on FoundList object");
             }
             catch (Exception ex) when (ex is not FoundListException)
             {
@@ -285,45 +250,10 @@ namespace CESDK.Classes
         {
             try
             {
-                PushFoundListObject();
-
-                // Try property access first (Value[index])
-                lua.GetField(-1, "Value");
-
-                if (!lua.IsNil(-1))
-                {
-                    lua.PushInteger(index);
-                    lua.GetTable(-2);
-                    var value = lua.ToString(-1);
-                    lua.Pop(3); // Pop value, Value table, and FoundList object
-                    return value ?? "";
-                }
-
-                // If property doesn't exist, try method
-                lua.Pop(1); // Pop nil
-                lua.GetField(-1, "getValue");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new FoundListException("Value property and getValue method not available on FoundList object");
-                }
-
-                // Push self (FoundList object) and index
-                lua.PushValue(-2);
-                lua.PushInteger(index);
-
-                // Call getValue(self, index)
-                var result = lua.PCall(2, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new FoundListException($"getValue({index}) call failed: {error}");
-                }
-
-                var valueFromMethod = lua.ToString(-1);
-                lua.Pop(2); // Pop value and FoundList object
-                return valueFromMethod ?? "";
+                var result = GetFoundListValue("Value", "getValue", index, () => lua.ToString(-1) ?? "", "", $"get value at index {index}");
+                if (!string.IsNullOrEmpty(result)) return result;
+                
+                throw new FoundListException("Value property and getValue method not available on FoundList object");
             }
             catch (Exception ex) when (ex is not FoundListException)
             {

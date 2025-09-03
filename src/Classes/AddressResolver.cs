@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using CESDK.Lua;
+using CESDK.Utils;
 
 namespace CESDK.Classes
 {
@@ -12,216 +13,88 @@ namespace CESDK.Classes
 
     public static class AddressResolver
     {
-        private static readonly LuaNative lua = PluginContext.Lua;
+        public static ulong GetAddress(string symbolName, bool searchLocal = false) =>
+            WrapException(() =>
+            {
+                var args = searchLocal ? new object[] { symbolName, true } : new object[] { symbolName };
+                return LuaUtils.CallLuaFunction("getAddress", $"resolve address for '{symbolName}'", ParseRequiredAddress, args);
+            });
 
-        public static ulong GetAddress(string symbolName, bool searchLocal = false)
+        private static ulong ParseRequiredAddress()
         {
-            try
+            var lua = PluginContext.Lua;
+            
+            if (lua.IsNumber(-1))
             {
-                lua.GetGlobal("getAddress");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new AddressResolutionException("getAddress function not available in this CE version");
-                }
-
-                lua.PushString(symbolName);
-                int paramCount = 1;
-
-                if (searchLocal)
-                {
-                    lua.PushBoolean(true);
-                    paramCount++;
-                }
-
-                var result = lua.PCall(paramCount, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new AddressResolutionException($"getAddress() call failed: {error}");
-                }
-
-                ulong address;
-                if (lua.IsNumber(-1))
-                {
-                    address = (ulong)lua.ToInteger(-1);
-                }
-                else if (lua.IsString(-1))
-                {
-                    var addressStr = lua.ToString(-1);
-                    if (!ulong.TryParse(addressStr, NumberStyles.HexNumber, null, out address))
-                    {
-                        if (!ulong.TryParse(addressStr, out address))
-                        {
-                            lua.Pop(1);
-                            throw new AddressResolutionException($"Invalid address format returned: {addressStr}");
-                        }
-                    }
-                }
-                else
-                {
-                    lua.Pop(1);
-                    throw new AddressResolutionException("Symbol not found or address could not be resolved");
-                }
-
-                lua.Pop(1);
-                return address;
+                return (ulong)lua.ToInteger(-1);
             }
-            catch (Exception ex) when (ex is not AddressResolutionException)
+            else if (lua.IsString(-1))
             {
-                throw new AddressResolutionException($"Failed to resolve address for '{symbolName}'", ex);
+                var addressStr = lua.ToString(-1);
+                if (ulong.TryParse(addressStr, NumberStyles.HexNumber, null, out var hexAddress))
+                {
+                    return hexAddress;
+                }
+                else if (ulong.TryParse(addressStr, out var decAddress))
+                {
+                    return decAddress;
+                }
+                throw new InvalidOperationException($"Invalid address format returned: {addressStr}");
+            }
+            else
+            {
+                throw new InvalidOperationException("Symbol not found or address could not be resolved");
             }
         }
 
-        public static ulong? GetAddressSafe(string symbolName, bool searchLocal = false)
+        public static ulong? GetAddressSafe(string symbolName, bool searchLocal = false) =>
+            WrapException(() =>
+            {
+                var args = searchLocal ? new object[] { symbolName, true } : new object[] { symbolName };
+                return LuaUtils.CallLuaFunction("getAddressSafe", $"safely resolve address for '{symbolName}'", ParseOptionalAddress, args);
+            });
+
+        private static ulong? ParseOptionalAddress()
         {
-            try
+            var lua = PluginContext.Lua;
+            
+            if (lua.IsNumber(-1))
             {
-                lua.GetGlobal("getAddressSafe");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new AddressResolutionException("getAddressSafe function not available in this CE version");
-                }
-
-                lua.PushString(symbolName);
-                int paramCount = 1;
-
-                if (searchLocal)
-                {
-                    lua.PushBoolean(true);
-                    paramCount++;
-                }
-
-                var result = lua.PCall(paramCount, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new AddressResolutionException($"getAddressSafe() call failed: {error}");
-                }
-
-                ulong? address = null;
-                if (lua.IsNumber(-1))
-                {
-                    address = (ulong)lua.ToInteger(-1);
-                }
-                else if (lua.IsString(-1))
-                {
-                    var addressStr = lua.ToString(-1);
-                    if (ulong.TryParse(addressStr, NumberStyles.HexNumber, null, out var hexAddr))
-                    {
-                        address = hexAddr;
-                    }
-                    else if (ulong.TryParse(addressStr, out var decAddr))
-                    {
-                        address = decAddr;
-                    }
-                }
-
-                lua.Pop(1);
-                return address;
+                return (ulong)lua.ToInteger(-1);
             }
-            catch (Exception ex) when (ex is not AddressResolutionException)
+            else if (lua.IsString(-1))
             {
-                throw new AddressResolutionException($"Failed to safely resolve address for '{symbolName}'", ex);
+                var addressStr = lua.ToString(-1);
+                if (ulong.TryParse(addressStr, NumberStyles.HexNumber, null, out var hexAddress))
+                {
+                    return hexAddress;
+                }
+                else if (ulong.TryParse(addressStr, out var decAddress))
+                {
+                    return decAddress;
+                }
             }
+            return null;
         }
 
-        public static string GetNameFromAddress(ulong address, bool moduleNames = true, bool symbols = true, bool sections = false)
+        public static string GetNameFromAddress(ulong address, bool moduleNames = true, bool symbols = true, bool sections = false) =>
+            WrapException(() => LuaUtils.CallLuaFunction("getNameFromAddress", $"get name from address 0x{address:X}", () => PluginContext.Lua.ToString(-1) ?? "", (long)address, moduleNames, symbols, sections));
+
+        public static bool InModule(ulong address) =>
+            WrapException(() => LuaUtils.CallLuaFunction("inModule", $"check if address 0x{address:X} is in module", () => PluginContext.Lua.ToBoolean(-1), (long)address));
+
+        public static bool InSystemModule(ulong address) =>
+            WrapException(() => LuaUtils.CallLuaFunction("inSystemModule", $"check if address 0x{address:X} is in system module", () => PluginContext.Lua.ToBoolean(-1), (long)address));
+
+        private static T WrapException<T>(Func<T> operation)
         {
             try
             {
-                lua.GetGlobal("getNameFromAddress");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new AddressResolutionException("getNameFromAddress function not available in this CE version");
-                }
-
-                lua.PushInteger((long)address);
-                lua.PushBoolean(moduleNames);
-                lua.PushBoolean(symbols);
-                lua.PushBoolean(sections);
-
-                var result = lua.PCall(4, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new AddressResolutionException($"getNameFromAddress() call failed: {error}");
-                }
-
-                var name = lua.ToString(-1) ?? "";
-                lua.Pop(1);
-                return name;
+                return operation();
             }
-            catch (Exception ex) when (ex is not AddressResolutionException)
+            catch (InvalidOperationException ex)
             {
-                throw new AddressResolutionException($"Failed to get name from address 0x{address:X}", ex);
-            }
-        }
-
-        public static bool InModule(ulong address)
-        {
-            try
-            {
-                lua.GetGlobal("inModule");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new AddressResolutionException("inModule function not available in this CE version");
-                }
-
-                lua.PushInteger((long)address);
-
-                var result = lua.PCall(1, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new AddressResolutionException($"inModule() call failed: {error}");
-                }
-
-                var isInModule = lua.ToBoolean(-1);
-                lua.Pop(1);
-                return isInModule;
-            }
-            catch (Exception ex) when (ex is not AddressResolutionException)
-            {
-                throw new AddressResolutionException($"Failed to check if address 0x{address:X} is in module", ex);
-            }
-        }
-
-        public static bool InSystemModule(ulong address)
-        {
-            try
-            {
-                lua.GetGlobal("inSystemModule");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new AddressResolutionException("inSystemModule function not available in this CE version");
-                }
-
-                lua.PushInteger((long)address);
-
-                var result = lua.PCall(1, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new AddressResolutionException($"inSystemModule() call failed: {error}");
-                }
-
-                var isInSystemModule = lua.ToBoolean(-1);
-                lua.Pop(1);
-                return isInSystemModule;
-            }
-            catch (Exception ex) when (ex is not AddressResolutionException)
-            {
-                throw new AddressResolutionException($"Failed to check if address 0x{address:X} is in system module", ex);
+                throw new AddressResolutionException(ex.Message, ex);
             }
         }
     }

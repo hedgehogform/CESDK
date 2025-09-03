@@ -1,5 +1,5 @@
 using System;
-using CESDK.Lua;
+using CESDK.Utils;
 
 namespace CESDK.Classes
 {
@@ -11,145 +11,42 @@ namespace CESDK.Classes
 
     public static class Debugger
     {
-        private static readonly LuaNative lua = PluginContext.Lua;
+        public static void DebugProcess() =>
+            WrapException(() => LuaUtils.CallVoidLuaFunction("debugProcess", "start debugging process"));
 
-        public static void DebugProcess()
+        public static void DetachIfPossible() =>
+            WrapException(() => LuaUtils.CallVoidLuaFunction("detachIfPossible", "detach debugger"));
+
+        public static void OutputDebugString(string message) =>
+            WrapException(() => LuaUtils.CallVoidLuaFunction("outputDebugString", "output debug string", message));
+
+        public static string? Disassemble(ulong address, int maxSize = 512) =>
+            WrapException(() => LuaUtils.CallLuaFunction("disassemble", $"disassemble address 0x{address:X}", () => PluginContext.Lua.ToString(-1), address, maxSize));
+
+        public static int GetInstructionSize(ulong address) =>
+            WrapException(() => LuaUtils.CallLuaFunction("getInstructionSize", $"get instruction size at 0x{address:X}", () => (int)PluginContext.Lua.ToInteger(-1), address));
+
+        private static T WrapException<T>(Func<T> operation)
         {
             try
             {
-                lua.GetGlobal("debugProcess");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new DebuggerException("debugProcess function not available in this CE version");
-                }
-
-                var result = lua.PCall(0, 0);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new DebuggerException($"debugProcess() call failed: {error}");
-                }
+                return operation();
             }
-            catch (Exception ex) when (ex is not DebuggerException)
+            catch (InvalidOperationException ex)
             {
-                throw new DebuggerException("Failed to start debugging process", ex);
+                throw new DebuggerException(ex.Message, ex);
             }
         }
 
-        public static void DetachIfPossible()
+        private static void WrapException(Action operation)
         {
             try
             {
-                lua.GetGlobal("detachIfPossible");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new DebuggerException("detachIfPossible function not available in this CE version");
-                }
-
-                var result = lua.PCall(0, 0);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new DebuggerException($"detachIfPossible() call failed: {error}");
-                }
+                operation();
             }
-            catch (Exception ex) when (ex is not DebuggerException)
+            catch (InvalidOperationException ex)
             {
-                throw new DebuggerException("Failed to detach debugger", ex);
-            }
-        }
-
-        public static void OutputDebugString(string message)
-        {
-            try
-            {
-                lua.GetGlobal("outputDebugString");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new DebuggerException("outputDebugString function not available in this CE version");
-                }
-
-                lua.PushString(message);
-
-                var result = lua.PCall(1, 0);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new DebuggerException($"outputDebugString() call failed: {error}");
-                }
-            }
-            catch (Exception ex) when (ex is not DebuggerException)
-            {
-                throw new DebuggerException("Failed to output debug string", ex);
-            }
-        }
-
-        public static string? Disassemble(ulong address, int maxSize = 512)
-        {
-            try
-            {
-                lua.GetGlobal("disassemble");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new DebuggerException("disassemble function not available in this CE version");
-                }
-
-                lua.PushInteger((long)address);
-                lua.PushInteger(maxSize);
-
-                var result = lua.PCall(2, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new DebuggerException($"disassemble() call failed: {error}");
-                }
-
-                var instruction = lua.ToString(-1);
-                lua.Pop(1);
-                return instruction;
-            }
-            catch (Exception ex) when (ex is not DebuggerException)
-            {
-                throw new DebuggerException($"Failed to disassemble address 0x{address:X}", ex);
-            }
-        }
-
-        public static int GetInstructionSize(ulong address)
-        {
-            try
-            {
-                lua.GetGlobal("getInstructionSize");
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(1);
-                    throw new DebuggerException("getInstructionSize function not available in this CE version");
-                }
-
-                lua.PushInteger((long)address);
-
-                var result = lua.PCall(1, 1);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new DebuggerException($"getInstructionSize() call failed: {error}");
-                }
-
-                var size = (int)lua.ToInteger(-1);
-                lua.Pop(1);
-                return size;
-            }
-            catch (Exception ex) when (ex is not DebuggerException)
-            {
-                throw new DebuggerException($"Failed to get instruction size at 0x{address:X}", ex);
+                throw new DebuggerException(ex.Message, ex);
             }
         }
     }
