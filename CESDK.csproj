@@ -38,9 +38,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Ignore legacy folder -->
     <Compile Remove="legacy\**" />
     <EmbeddedResource Remove="legacy\**" />
     <None Remove="legacy\**" />
+
+    <!-- Ignore Examples folder -->
+    <Compile Remove="Examples\**" />
   </ItemGroup>
 
 </Project>
