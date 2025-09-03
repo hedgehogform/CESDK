@@ -6,8 +6,8 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+
 
     <!-- NuGet Package Metadata -->
     <PackageId>CheatEngine.SDK</PackageId>
