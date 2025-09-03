@@ -124,6 +124,12 @@ namespace CESDK.Lua
         private delegate bool DelegateIsFunction(IntPtr state, int index);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int LuaCFunction(IntPtr state);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void DelegatePushCFunction(IntPtr L, LuaCFunction f);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate bool DelegateIsCFunction(IntPtr state, int index);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -189,6 +195,7 @@ namespace CESDK.Lua
         private readonly DelegateIsBoolean _isBoolean;
         private readonly DelegateIsFunction _isFunction;
         private readonly DelegateIsCFunction _isCFunction;
+        private readonly DelegatePushCFunction _pushCFunction;
         private readonly DelegateIsTable _isTable;
         private readonly DelegateIsNil _isNil;
         private readonly DelegateIsThread _isThread;
@@ -245,6 +252,7 @@ namespace CESDK.Lua
             _isBoolean = GetDelegate<DelegateIsBoolean>(luaModule, "lua_isboolean");
             _isFunction = GetDelegate<DelegateIsFunction>(luaModule, "lua_isfunction");
             _isCFunction = GetDelegate<DelegateIsCFunction>(luaModule, "lua_iscfunction");
+            _pushCFunction = GetDelegate<DelegatePushCFunction>(luaModule, "lua_pushcfunction");
             _isTable = GetDelegate<DelegateIsTable>(luaModule, "lua_istable");
             _isNil = GetDelegate<DelegateIsNil>(luaModule, "lua_isnil");
             _isThread = GetDelegate<DelegateIsThread>(luaModule, "lua_isthread");
@@ -276,6 +284,8 @@ namespace CESDK.Lua
                 throw new InvalidOperationException($"Could not find function: {functionName}");
             return Marshal.GetDelegateForFunctionPointer<T>(address);
         }
+
+        private readonly List<LuaCFunction> _keepAlive = [];
 
         #region Public API
 
@@ -426,6 +436,14 @@ namespace CESDK.Lua
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a C function (not a Lua function).</returns>
         public bool IsCFunction(int index) => _isCFunction(_luaState, index);
+
+        public void PushCFunction(LuaCFunction function)
+        {
+            if (function == null)
+                throw new ArgumentNullException(nameof(function));
+
+            _pushCFunction(_luaState, function);
+        }
 
         /// <summary>
         /// Checks if the value at the specified index is userdata.
@@ -820,6 +838,25 @@ namespace CESDK.Lua
             }
         }
 
+
+        /// <summary>
+        /// Registers a C# function as a global Lua function.
+        /// </summary>
+        public void RegisterFunction(string name, Action action)
+        {
+            // wrap user action into a LuaCFunction
+            int wrapper(IntPtr state)
+            {
+                action(); // call the user’s void method
+                return 0; // no return values pushed
+            }
+
+            _keepAlive.Add(wrapper); // prevent GC
+
+            // equivalent to lua_register(L,name,f)
+            PushCFunction(wrapper);
+            SetGlobal(name);
+        }
 
         #endregion
     }

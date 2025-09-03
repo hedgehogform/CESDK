@@ -16,7 +16,7 @@ namespace CESDK.Classes
     public class ThreadList
     {
         private readonly LuaNative lua;
-        private readonly List<string> threadIds = new List<string>();
+        private readonly List<string> threadIds = [];
         private bool _loaded = false;
 
         public ThreadList()
