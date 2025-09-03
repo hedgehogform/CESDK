@@ -1,47 +1,78 @@
-#nullable enable
 using System;
 using System.Runtime.InteropServices;
-using CESDK.Core;
 using CESDK.Lua;
+using System.IO;
 
 namespace CESDK
 {
-    /// <summary>
-    /// Main CESDK class - provides the entry point for Cheat Engine
-    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct TExportedFunctions
+    {
+        public int sizeofExportedFunctions;
+        public IntPtr GetLuaState;
+        public IntPtr LuaRegister;
+        public IntPtr LuaPushClassInstance;
+        public IntPtr ProcessMessages;
+        public IntPtr CheckSynchronize;
+    }
+
     public class CESDK
     {
-        // Private backing field for current plugin
+        private const int PLUGIN_VERSION = 6;
+        private static CESDK? mainSelf;
         private static CheatEnginePlugin? _currentPlugin;
-
-        /// <summary>
-        /// Public read-only property exposing the current plugin.
-        /// </summary>
         public static CheatEnginePlugin? CurrentPlugin => _currentPlugin;
 
-        // Private field holding the shared Lua state
-        private LuaNative _lua = PluginContext.Lua;
+        private UInt32 pluginId;
+        private TExportedFunctions pluginExports;
 
-        /// <summary>
-        /// Public property exposing the shared Lua state.
-        /// </summary>
-        public LuaNative Lua => _lua;
-
-        private const int PLUGIN_VERSION = 6;
-        private static CESDK? mainself;
         private static IntPtr PluginNamePtr;
 
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        private delegate void DelegateProcessMessages();
+        #region Delegates
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        private delegate bool DelegateCheckSynchronize(int timeout);
+        private delegate bool delegateGetVersion(ref TPluginVersion PluginVersion, int TPluginVersionSize);
 
-        private readonly DelegateGetVersion delGetVersion;
-        private readonly DelegateEnablePlugin delEnablePlugin;
-        private readonly DelegateDisablePlugin delDisablePlugin;
-        private static DelegateProcessMessages? delProcessMessages;
-        private static DelegateCheckSynchronize? delCheckSynchronize;
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate bool delegateEnablePlugin(ref TExportedFunctions ExportedFunctions, UInt32 pluginid);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate bool delegateDisablePlugin();
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate void delegateProcessMessages();
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate bool delegateCheckSynchronize(int timeout);
+
+        private delegateGetVersion? delGetVersion;
+        private delegateEnablePlugin? delEnablePlugin;
+        private delegateDisablePlugin? delDisablePlugin;
+        private delegateProcessMessages? delProcessMessages;
+        private delegateCheckSynchronize? delCheckSynchronize;
+
+        #endregion
+
+        #region Internal Structures
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct TPluginVersion
+        {
+            public UInt32 version;
+            public IntPtr name;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct TPluginInit
+        {
+            public IntPtr name;
+            public IntPtr GetVersion;
+            public IntPtr EnablePlugin;
+            public IntPtr DisablePlugin;
+            public int version;
+        }
+
+        #endregion
 
         private CESDK()
         {
@@ -50,33 +81,39 @@ namespace CESDK
             delDisablePlugin = DisablePlugin;
         }
 
-        private static bool GetVersion(ref TPluginVersion pluginVersion, int TPluginVersionSize)
+        #region Delegate Implementations
+
+        private static bool GetVersion(ref TPluginVersion PluginVersion, int TPluginVersionSize)
         {
-            pluginVersion.name = PluginNamePtr;
-            pluginVersion.version = PLUGIN_VERSION;
+            PluginVersion.name = PluginNamePtr;
+            PluginVersion.version = PLUGIN_VERSION;
             return true;
         }
 
-        private static bool EnablePlugin(ref TExportedFunctions exportedFunctions, uint pluginid)
+        private static bool EnablePlugin(ref TExportedFunctions ExportedFunctions, UInt32 pluginid)
         {
             try
             {
-                if (mainself == null) return false;
+                if (mainSelf == null || CurrentPlugin == null)
+                    return false;
 
+                mainSelf.pluginId = pluginid;
+                mainSelf.pluginExports = ExportedFunctions;
 
+                mainSelf.delProcessMessages ??= Marshal.GetDelegateForFunctionPointer<delegateProcessMessages>(mainSelf.pluginExports.ProcessMessages);
+                mainSelf.delCheckSynchronize ??= Marshal.GetDelegateForFunctionPointer<delegateCheckSynchronize>(mainSelf.pluginExports.CheckSynchronize);
 
-                // Setup delegates for CE functions
-                delProcessMessages ??= Marshal.GetDelegateForFunctionPointer<DelegateProcessMessages>(exportedFunctions.ProcessMessages);
-                delCheckSynchronize ??= Marshal.GetDelegateForFunctionPointer<DelegateCheckSynchronize>(exportedFunctions.CheckSynchronize);
+                // Initialize Lua pointer for CE
+                PluginContext.Initialize(ExportedFunctions.GetLuaState);
 
-                // Use the shared Lua state from PluginContext
-                mainself._lua ??= PluginContext.Lua;
+                // Call the plugin enable hook
+                CurrentPlugin.EnablePlugin();
 
-                _currentPlugin?.InternalOnEnable();
-                return true;
+                return true; // Must return true to CE
             }
-            catch
+            catch (Exception ex)
             {
+                PluginLogger.LogException(ex);
                 return false;
             }
         }
@@ -85,44 +122,45 @@ namespace CESDK
         {
             try
             {
-                _currentPlugin?.InternalOnDisable();
+                CurrentPlugin?.DisablePlugin();
                 return true;
             }
             catch
             {
                 return false;
             }
+
         }
+
+        #endregion
+
+        #region Public Helpers
 
         public static void ProcessMessages()
         {
-            delProcessMessages?.Invoke();
+            mainSelf?.delProcessMessages?.Invoke();
         }
 
         public static bool CheckSynchronize(int timeout)
         {
-            return delCheckSynchronize?.Invoke(timeout) ?? false;
+            return mainSelf?.delCheckSynchronize?.Invoke(timeout) ?? false;
         }
 
-        /// <summary>
-        /// Entry point called by Cheat Engine to initialize the plugin
-        /// </summary>
+        #endregion
+
         public static int CEPluginInitialize(string parameters)
         {
             try
             {
-                mainself ??= new CESDK();
+                mainSelf ??= new CESDK();
 
                 if (PluginNamePtr == IntPtr.Zero)
                 {
-                    // Search for plugin using legacy pattern
-                    var types = typeof(CheatEnginePlugin).Assembly.GetTypes();
-
-                    for (int i = 0; i < types.Length; i++)
+                    foreach (var type in typeof(CheatEnginePlugin).Assembly.GetTypes())
                     {
-                        if (types[i].IsSubclassOf(typeof(CheatEnginePlugin)) && !types[i].IsAbstract)
+                        if (type.IsSubclassOf(typeof(CheatEnginePlugin)) && !type.IsAbstract)
                         {
-                            _currentPlugin = (CheatEnginePlugin)Activator.CreateInstance(types[i]);
+                            _currentPlugin = (CheatEnginePlugin)Activator.CreateInstance(type)!;
                             break;
                         }
                     }
@@ -137,9 +175,9 @@ namespace CESDK
                 var pluginInit = new TPluginInit
                 {
                     name = PluginNamePtr,
-                    GetVersion = Marshal.GetFunctionPointerForDelegate(mainself.delGetVersion),
-                    EnablePlugin = Marshal.GetFunctionPointerForDelegate(mainself.delEnablePlugin),
-                    DisablePlugin = Marshal.GetFunctionPointerForDelegate(mainself.delDisablePlugin),
+                    GetVersion = Marshal.GetFunctionPointerForDelegate(mainSelf.delGetVersion),
+                    EnablePlugin = Marshal.GetFunctionPointerForDelegate(mainSelf.delEnablePlugin),
+                    DisablePlugin = Marshal.GetFunctionPointerForDelegate(mainSelf.delDisablePlugin),
                     version = PLUGIN_VERSION
                 };
 

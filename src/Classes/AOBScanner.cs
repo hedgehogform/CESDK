@@ -1,4 +1,3 @@
-#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -39,7 +38,7 @@ namespace CESDK.Classes
             }
 
             var paramCount = PushScanParameters(pattern, protectionFlags, alignmentType, alignmentParam);
-            
+
             var result = lua.PCall(paramCount, 1);
             if (result != 0)
             {
@@ -78,7 +77,7 @@ namespace CESDK.Classes
         private static List<ulong> ProcessScanResults()
         {
             var addresses = new List<ulong>();
-            
+
             if (!lua.IsUserData(-1))
             {
                 lua.Pop(1);
@@ -108,7 +107,7 @@ namespace CESDK.Classes
         {
             lua.PushInteger(index);
             lua.GetTable(-2);
-            
+
             if (lua.IsString(-1))
             {
                 var addressStr = lua.ToString(-1);

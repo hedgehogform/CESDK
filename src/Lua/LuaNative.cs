@@ -9,35 +9,26 @@ namespace CESDK.Lua
     /// </summary>
     public class LuaNative
     {
-        #region DLL Imports
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
-        private static extern IntPtr LoadLibraryA([MarshalAs(UnmanagedType.LPStr)] string fileName);
 
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
-        private static extern IntPtr GetProcAddress(IntPtr module, [MarshalAs(UnmanagedType.LPStr)] string procedureName);
+
+        #region Constants
+        // Basic types: https://www.lua.org/source/5.3/lua.h.html
+
+        private const int LUA_TNONE = (-1);
+        private const int LUA_TNIL = 0;
+        private const int LUA_TBOOLEAN = 1;
+        private const int LUA_TLIGHTUSERDATA = 2;
+        private const int LUA_TNUMBER = 3;
+        private const int LUA_TSTRING = 4;
+        private const int LUA_TTABLE = 5;
+        private const int LUA_TFUNCTION = 6;
+        private const int LUA_TUSERDATA = 7;
+        private const int LUA_TTHREAD = 8;
+        private const int LUA_NUMTAGS = 9;
+
         #endregion
 
-        /* Basic types: https://www.lua.org/source/5.3/lua.h.html
-
-        #define LUA_TNONE               (-1)
-
-        #define LUA_TNIL                0
-        #define LUA_TBOOLEAN            1
-        #define LUA_TLIGHTUSERDATA      2
-        #define LUA_TNUMBER             3
-        #define LUA_TSTRING             4
-        #define LUA_TTABLE              5
-        #define LUA_TFUNCTION           6
-        #define LUA_TUSERDATA           7
-        #define LUA_TTHREAD             8
-        #define LUA_NUMTAGS             9
-
-        */
-
         #region Delegates
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate IntPtr DelegateNewState();
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int DelegateGetTop(IntPtr state);
 
@@ -120,34 +111,12 @@ namespace CESDK.Lua
         private delegate bool DelegateIsInteger(IntPtr state, int index);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate bool DelegateIsBoolean(IntPtr state, int index);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate bool DelegateIsFunction(IntPtr state, int index);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int LuaCFunction(IntPtr state);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void DelegatePushCFunction(IntPtr L, LuaCFunction f);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate bool DelegateIsCFunction(IntPtr state, int index);
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate bool DelegateIsTable(IntPtr state, int index);
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate bool DelegateIsNil(IntPtr state, int index);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate bool DelegateIsThread(IntPtr state, int index);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate bool DelegateIsNone(IntPtr state, int index);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate bool DelegateIsNoneOrNil(IntPtr state, int index);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate bool DelegateIsUserData(IntPtr state, int index);
@@ -156,13 +125,16 @@ namespace CESDK.Lua
         private delegate int DelegateRawLen(IntPtr state, int index);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void DelegateCall(IntPtr state, int nargs, int nresults);
+        private delegate void DelegateCall(IntPtr state, int nargs, int nresults, IntPtr ctx, IntPtr k);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate IntPtr DelegateToUserData(IntPtr state, int index);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int DelegateNext(IntPtr state, int index);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void DelegatePushCFunction(IntPtr state, IntPtr function, int upvalues);
         #endregion
 
         #region Function Pointers
@@ -194,36 +166,28 @@ namespace CESDK.Lua
         private readonly DelegateRotate _rotate;
         private readonly DelegateCopy _copy;
         private readonly DelegateIsInteger _isInteger;
-        private readonly DelegateIsBoolean _isBoolean;
-        private readonly DelegateIsFunction _isFunction;
         private readonly DelegateIsCFunction _isCFunction;
-        private readonly DelegatePushCFunction _pushCFunction;
-        private readonly DelegateIsTable _isTable;
-        private readonly DelegateIsNil _isNil;
-        private readonly DelegateIsThread _isThread;
-        private readonly DelegateIsNone _isNone;
-        private readonly DelegateIsNoneOrNil _isNoneOrNil;
         private readonly DelegateIsUserData _isUserData;
         private readonly DelegateRawLen _rawLen;
         private readonly DelegateCall _call;
         private readonly DelegateToUserData _toUserData;
         private readonly DelegateNext _next;
+        private readonly DelegatePushCFunction _pushCFunction;
 
 
         #endregion
 
-        public LuaNative()
+        public LuaNative(IntPtr luaState)
         {
-            // Load Lua DLL - try both 32 and 64 bit versions
-            var luaModule = LoadLibraryA("lua53-32.dll");
+            // Load Lua library exactly like the legacy CESDKLua
+            IntPtr luaModule = LoadLibraryA("lua53-32.dll");
             if (luaModule == IntPtr.Zero)
                 luaModule = LoadLibraryA("lua53-64.dll");
 
             if (luaModule == IntPtr.Zero)
-                throw new InvalidOperationException("Could not load Lua library");
+                throw new InvalidOperationException("Could not load Lua library - tried lua53-32.dll and lua53-64.dll");
 
             // Initialize function pointers
-            var _newState = GetDelegate<DelegateNewState>(luaModule, "luaL_newstate");
             _getTop = GetDelegate<DelegateGetTop>(luaModule, "lua_gettop");
             _setTop = GetDelegate<DelegateSetTop>(luaModule, "lua_settop");
             _getGlobal = GetDelegate<DelegateGetGlobal>(luaModule, "lua_getglobal");
@@ -240,7 +204,7 @@ namespace CESDK.Lua
             _toInteger = GetDelegate<DelegateToInteger>(luaModule, "lua_tointegerx");
             _toNumber = GetDelegate<DelegateToNumber>(luaModule, "lua_tonumberx");
             _toBoolean = GetDelegate<DelegateToBoolean>(luaModule, "lua_toboolean");
-            _pcall = GetDelegate<DelegatePCall>(luaModule, "lua_pcall");
+            _pcall = GetDelegate<DelegatePCall>(luaModule, "lua_pcallk");
             _loadString = GetDelegate<DelegateLoadString>(luaModule, "luaL_loadstring");
             _getTable = GetDelegate<DelegateGetTable>(luaModule, "lua_gettable");
             _getField = GetDelegate<DelegateGetField>(luaModule, "lua_getfield");
@@ -251,25 +215,22 @@ namespace CESDK.Lua
             _rotate = GetDelegate<DelegateRotate>(luaModule, "lua_rotate");
             _copy = GetDelegate<DelegateCopy>(luaModule, "lua_copy");
             _isInteger = GetDelegate<DelegateIsInteger>(luaModule, "lua_isinteger");
-            _isBoolean = GetDelegate<DelegateIsBoolean>(luaModule, "lua_isboolean");
-            _isFunction = GetDelegate<DelegateIsFunction>(luaModule, "lua_isfunction");
             _isCFunction = GetDelegate<DelegateIsCFunction>(luaModule, "lua_iscfunction");
-            _pushCFunction = GetDelegate<DelegatePushCFunction>(luaModule, "lua_pushcfunction");
-            _isTable = GetDelegate<DelegateIsTable>(luaModule, "lua_istable");
-            _isNil = GetDelegate<DelegateIsNil>(luaModule, "lua_isnil");
-            _isThread = GetDelegate<DelegateIsThread>(luaModule, "lua_isthread");
-            _isNone = GetDelegate<DelegateIsNone>(luaModule, "lua_isnone");
-            _isNoneOrNil = GetDelegate<DelegateIsNoneOrNil>(luaModule, "lua_isnoneornil");
             _isUserData = GetDelegate<DelegateIsUserData>(luaModule, "lua_isuserdata");
             _rawLen = GetDelegate<DelegateRawLen>(luaModule, "lua_rawlen");
-            _call = GetDelegate<DelegateCall>(luaModule, "lua_call");
+            _call = GetDelegate<DelegateCall>(luaModule, "lua_callk");
             _toUserData = GetDelegate<DelegateToUserData>(luaModule, "lua_touserdata");
             _next = GetDelegate<DelegateNext>(luaModule, "lua_next");
+            _pushCFunction = GetDelegate<DelegatePushCFunction>(luaModule, "lua_pushcclosure");
 
-            _luaState = _newState();  // Create a new Lua state
-            if (_luaState == IntPtr.Zero)
-                throw new InvalidOperationException("Failed to create Lua state");
+            _luaState = luaState;
         }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern IntPtr LoadLibraryA([MarshalAs(UnmanagedType.LPStr)] string fileName);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern IntPtr GetProcAddress(IntPtr module, [MarshalAs(UnmanagedType.LPStr)] string procedureName);
 
         /// <summary>
         /// Gets a delegate for a function in the Lua module.
@@ -423,14 +384,14 @@ namespace CESDK.Lua
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a boolean.</returns>
-        public bool IsBoolean(int index) => _isBoolean(_luaState, index);
+        public bool IsBoolean(int index) => Type(index) == LUA_TBOOLEAN;
 
         /// <summary>
         /// Checks if the value at the specified index is a function (Lua or C).
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is any kind of function.</returns>
-        public bool IsFunction(int index) => _isFunction(_luaState, index);
+        public bool IsFunction(int index) => Type(index) == LUA_TFUNCTION;
 
         /// <summary>
         /// Checks if the value at the specified index is a C function.
@@ -444,7 +405,9 @@ namespace CESDK.Lua
             if (function == null)
                 throw new ArgumentNullException(nameof(function));
 
-            _pushCFunction(_luaState, function);
+            _keepAlive.Add(function);
+            var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
+            _pushCFunction(_luaState, functionPtr, 0);
         }
 
         /// <summary>
@@ -459,35 +422,35 @@ namespace CESDK.Lua
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a table.</returns>
-        public bool IsTable(int index) => _isTable(_luaState, index);
+        public bool IsTable(int index) => Type(index) == LUA_TTABLE;
 
         /// <summary>
         /// Checks if the value at the specified index is nil.
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is nil.</returns>
-        public bool IsNil(int index) => _isNil(_luaState, index);
+        public bool IsNil(int index) => Type(index) == LUA_TNIL;
 
         /// <summary>
         /// Checks if the value at the specified index is a thread (coroutine).
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a thread.</returns>
-        public bool IsThread(int index) => _isThread(_luaState, index);
+        public bool IsThread(int index) => Type(index) == LUA_TTHREAD;
 
         /// <summary>
         /// Checks if the specified index is not valid (beyond the stack).
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the index refers to a non-existent stack position.</returns>
-        public bool IsNone(int index) => _isNone(_luaState, index);
+        public bool IsNone(int index) => Type(index) == LUA_TNONE;
 
         /// <summary>
         /// Checks if the value at the specified index is nil or the index is invalid.
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is nil or the index is invalid.</returns>
-        public bool IsNoneOrNil(int index) => _isNoneOrNil(_luaState, index);
+        public bool IsNoneOrNil(int index) => Type(index) <= 0;
 
         /// <summary>
         /// Converts the value at the specified index to a string.
@@ -565,7 +528,7 @@ namespace CESDK.Lua
         /// <para>Unlike PCall, this will terminate the program if an error occurs.</para>
         /// <para>Use PCall for safer function calls with error handling.</para>
         /// </remarks>
-        public void Call(int nargs, int nresults) => _call(_luaState, nargs, nresults);
+        public void Call(int nargs, int nresults) => _call(_luaState, nargs, nresults, IntPtr.Zero, IntPtr.Zero);
         /// <summary>
         /// Loads and compiles a Lua script from a string.
         /// </summary>
@@ -852,8 +815,6 @@ namespace CESDK.Lua
                 action(); // call the user’s void method
                 return 0; // no return values pushed
             }
-
-            _keepAlive.Add(wrapper); // prevent GC
 
             // equivalent to lua_register(L,name,f)
             PushCFunction(wrapper);

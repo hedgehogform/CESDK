@@ -1,4 +1,3 @@
-#nullable enable
 using CESDK.Lua;
 
 namespace CESDK
@@ -25,19 +24,9 @@ namespace CESDK
 
         #region Internal Plugin Interface
 
-        internal void InternalOnEnable() => OnEnable();
-        internal void InternalOnDisable() => OnDisable();
+        internal void EnablePlugin() => OnEnable();
+        internal void DisablePlugin() => OnDisable();
 
         #endregion
-
-        /// <summary>
-        /// Processes pending Windows messages to keep CE responsive.
-        /// </summary>
-        protected static void ProcessMessages() => CESDK.ProcessMessages();
-
-        /// <summary>
-        /// Checks for synchronization events with a timeout.
-        /// </summary>
-        protected static bool CheckSynchronize(int timeout) => CESDK.CheckSynchronize(timeout);
     }
 }
