@@ -794,6 +794,33 @@ namespace CESDK.Lua
             return returnValue;
         }
 
+        /// <summary>
+        /// Loads and executes a Lua script string in one step.
+        /// </summary>
+        /// <param name="script">The Lua code to execute.</param>
+        /// <exception cref="InvalidOperationException">Thrown if compilation or execution fails.</exception>
+        public void DoString(string script)
+        {
+            // Load the Lua string
+            int loadResult = LoadString(script);
+            if (loadResult != 0) // non-zero means error
+            {
+                var error = ToString(-1);
+                Pop(1);
+                throw new InvalidOperationException($"Failed to load Lua script: {error}");
+            }
+
+            // Execute the loaded chunk
+            int callResult = PCall(0, -1); // 0 args, multiple results (-1)
+            if (callResult != 0) // non-zero means runtime error
+            {
+                var error = ToString(-1);
+                Pop(1);
+                throw new InvalidOperationException($"Error running Lua script: {error}");
+            }
+        }
+
+
         #endregion
     }
 }
