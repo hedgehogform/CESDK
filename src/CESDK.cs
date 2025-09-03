@@ -1,3 +1,5 @@
+#nullable enable
+using System;
 using System.Runtime.InteropServices;
 using CESDK.Core;
 using CESDK.Lua;
@@ -9,8 +11,22 @@ namespace CESDK
     /// </summary>
     public class CESDK
     {
-        public static CheatEnginePlugin? currentPlugin;
-        public LuaEngine? lua;
+        // Private backing field for current plugin
+        private static CheatEnginePlugin? _currentPlugin;
+
+        /// <summary>
+        /// Public read-only property exposing the current plugin.
+        /// </summary>
+        public static CheatEnginePlugin? CurrentPlugin => _currentPlugin;
+
+        // Private field holding the shared Lua state
+        private LuaNative _lua = PluginContext.Lua;
+
+        /// <summary>
+        /// Public property exposing the shared Lua state.
+        /// </summary>
+        public LuaNative Lua => _lua;
+
         private const int PLUGIN_VERSION = 6;
         private static CESDK? mainself;
         private static IntPtr PluginNamePtr;
@@ -26,7 +42,6 @@ namespace CESDK
         private readonly DelegateDisablePlugin delDisablePlugin;
         private static DelegateProcessMessages? delProcessMessages;
         private static DelegateCheckSynchronize? delCheckSynchronize;
-        public Core.TExportedFunctions pluginexports;
 
         private CESDK()
         {
@@ -35,51 +50,46 @@ namespace CESDK
             delDisablePlugin = DisablePlugin;
         }
 
-        private static Boolean GetVersion(ref TPluginVersion pluginVersion, int TPluginVersionSize)
+        private static bool GetVersion(ref TPluginVersion pluginVersion, int TPluginVersionSize)
         {
             pluginVersion.name = PluginNamePtr;
             pluginVersion.version = PLUGIN_VERSION;
             return true;
         }
 
-        private static Boolean EnablePlugin(ref Core.TExportedFunctions exportedFunctions, UInt32 pluginid)
+        private static bool EnablePlugin(ref TExportedFunctions exportedFunctions, uint pluginid)
         {
             try
             {
                 if (mainself == null) return false;
 
-                mainself.pluginexports = exportedFunctions;
 
-                // Setup the delegates for CE functions
+
+                // Setup delegates for CE functions
                 delProcessMessages ??= Marshal.GetDelegateForFunctionPointer<DelegateProcessMessages>(exportedFunctions.ProcessMessages);
-
                 delCheckSynchronize ??= Marshal.GetDelegateForFunctionPointer<DelegateCheckSynchronize>(exportedFunctions.CheckSynchronize);
 
-                mainself.lua ??= new LuaEngine(exportedFunctions);
+                // Use the shared Lua state from PluginContext
+                mainself._lua ??= PluginContext.Lua;
 
-                PluginContext.Initialize(mainself.lua);
-
-                currentPlugin?.InternalOnEnable();
+                _currentPlugin?.InternalOnEnable();
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                // System.Console.WriteLine($"[CESDK] EnablePlugin failed: {ex}");
                 return false;
             }
         }
 
-        private static Boolean DisablePlugin()
+        private static bool DisablePlugin()
         {
             try
             {
-                currentPlugin?.InternalOnDisable();
-                PluginContext.Cleanup();
+                _currentPlugin?.InternalOnDisable();
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                // System.Console.WriteLine($"[CESDK] DisablePlugin failed: {ex}");
                 return false;
             }
         }
@@ -112,15 +122,15 @@ namespace CESDK
                     {
                         if (types[i].IsSubclassOf(typeof(CheatEnginePlugin)) && !types[i].IsAbstract)
                         {
-                            currentPlugin = (CheatEnginePlugin)Activator.CreateInstance(types[i]);
+                            _currentPlugin = (CheatEnginePlugin)Activator.CreateInstance(types[i]);
                             break;
                         }
                     }
 
-                    if (currentPlugin == null)
+                    if (_currentPlugin == null)
                         return 0;
 
-                    PluginNamePtr = Marshal.StringToHGlobalAnsi(currentPlugin.Name);
+                    PluginNamePtr = Marshal.StringToHGlobalAnsi(_currentPlugin.Name);
                 }
 
                 var address = ulong.Parse(parameters);
@@ -136,9 +146,8 @@ namespace CESDK
                 Marshal.StructureToPtr(pluginInit, (IntPtr)address, false);
                 return 1;
             }
-            catch (Exception ex)
+            catch
             {
-                // System.Console.WriteLine($"[CESDK] CEPluginInitialize failed: {ex}");
                 return 0;
             }
         }

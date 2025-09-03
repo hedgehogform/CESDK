@@ -7,7 +7,7 @@ namespace CESDK
     /// </summary>
     public static class PluginContext
     {
-        // The single Lua state, initialized once
+        // Single Lua instance, initialized once
         private static readonly LuaNative _lua = new();
 
         /// <summary>
