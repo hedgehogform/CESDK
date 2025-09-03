@@ -1,11 +1,36 @@
 using System;
 using System.IO;
+using System.Reflection;
 
 namespace CESDK
 {
     public static class PluginLogger
     {
-        private static readonly string logPath = $"./{CESDK.CurrentPlugin?.Name ?? "CESDK_ERROR"}.log";
+        private static readonly string logPath = GetLogPath();
+
+        private static string GetLogPath()
+        {
+            try
+            {
+                // Get the directory where Cheat Engine is running from
+                var ceDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
+                if (string.IsNullOrEmpty(ceDirectory))
+                    ceDirectory = Environment.CurrentDirectory;
+
+                // Create plugin-logs directory in CE directory
+                var pluginLogsDir = Path.Combine(ceDirectory, "plugin-logs");
+                Directory.CreateDirectory(pluginLogsDir);
+
+                // Create log file path
+                var pluginName = CESDK.CurrentPlugin?.Name ?? "CESDK_ERROR";
+                return Path.Combine(pluginLogsDir, $"{pluginName}.log");
+            }
+            catch
+            {
+                // Fallback to current directory if something fails
+                return $"./{CESDK.CurrentPlugin?.Name ?? "CESDK_ERROR"}.log";
+            }
+        }
 
         public static void Log(string message)
         {
