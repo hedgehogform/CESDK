@@ -7,8 +7,8 @@ A C# wrapper library for developing plugins for Cheat Engine. Provides managed .
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK.svg?type=large&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK?ref=badge_large&issueType=license)
 
 ## Status
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK?ref=badge_shield)
 
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK?ref=badge_shield)
 
 This project is currently under active development. The core SDK infrastructure is implemented but many features are still being developed and tested.
 
@@ -18,16 +18,9 @@ This project is currently under active development. The core SDK infrastructure 
 dotnet build
 ```
 
-## Architecture
-
-- **CESDK.cs** - Main plugin infrastructure
-- **CESDKLua.cs** - Lua API wrapper
-- **CEObjectWrapper.cs** - Base wrapper class with cleanup
-- Individual feature classes (Process, MemScan, MemoryRead, etc.)
-
 ## Requirements
 
-- .NET Framework 4.8.1 or later
+- .NET Framework 4.8.1
 - Cheat Engine 7.0 or later
 - Windows
 
@@ -37,6 +30,6 @@ dotnet build
 
 I just want to make sure the library works first as I really can't implement unit testing with a DLL since it requires Cheat Engine running at runtime.
 
-
 ## License
+
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK?ref=badge_large)
