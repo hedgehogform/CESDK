@@ -274,7 +274,7 @@ namespace CESDK.Classes
         /// Gets the attached FoundList for reading scan results
         /// </summary>
         /// <returns>FoundList object or null if none attached</returns>
-        public FoundList GetAttachedFoundList()
+        public FoundList? GetAttachedFoundList()
         {
             return CallMemScanMethod("getAttachedFoundlist", "get attached found list", () =>
             {

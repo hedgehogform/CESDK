@@ -16,15 +16,15 @@ namespace CESDK.Classes
         public static List<ulong> Scan(string pattern, string? protectionFlags = null, int alignmentType = 0, string? alignmentParam = null) =>
             WrapException(() =>
             {
-                LuaUtils.CallVoidLuaFunctionWithOptionalParams("AOBScan", "perform AOB scan", pattern, protectionFlags, alignmentType, alignmentParam);
+                LuaUtils.CallVoidLuaFunctionWithOptionalParams("AOBScan", "perform AOB scan", pattern, protectionFlags ?? string.Empty, alignmentType, alignmentParam ?? string.Empty);
                 return ProcessScanResults();
             });
 
         public static ulong? ScanUnique(string pattern, string? protectionFlags = null, int alignmentType = 0, string? alignmentParam = null) =>
-            WrapException(() => LuaUtils.CallLuaFunctionWithOptionalParams("AOBScanUnique", "perform unique AOB scan", LuaUtils.ParseAddressFromStack, pattern, protectionFlags, alignmentType, alignmentParam));
+            WrapException(() => LuaUtils.CallLuaFunctionWithOptionalParams("AOBScanUnique", "perform unique AOB scan", LuaUtils.ParseAddressFromStack, pattern, protectionFlags ?? string.Empty, alignmentType, alignmentParam ?? string.Empty));
 
         public static ulong? ScanModuleUnique(string moduleName, string pattern, string? protectionFlags = null, int alignmentType = 0, string? alignmentParam = null) =>
-            WrapException(() => LuaUtils.CallLuaFunction("AOBScanModuleUnique", "perform module unique AOB scan", LuaUtils.ParseAddressFromStack, moduleName, pattern, protectionFlags, alignmentType, alignmentParam));
+            WrapException(() => LuaUtils.CallLuaFunction("AOBScanModuleUnique", "perform module unique AOB scan", LuaUtils.ParseAddressFromStack, moduleName, pattern, protectionFlags ?? string.Empty, alignmentType, alignmentParam ?? string.Empty));
 
         private static List<ulong> ProcessScanResults()
         {
