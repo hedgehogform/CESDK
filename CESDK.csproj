@@ -4,7 +4,7 @@
     <TargetFramework>net4.8.1</TargetFramework>
     <RootNamespace>CESDK</RootNamespace>
     <LangVersion>latest</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 

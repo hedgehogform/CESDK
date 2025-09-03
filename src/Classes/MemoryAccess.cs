@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using CESDK.Lua;
 
 namespace CESDK.Classes
