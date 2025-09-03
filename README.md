@@ -26,3 +26,9 @@ dotnet build
 - .NET Framework 4.8.1 or later
 - Cheat Engine 7.0 or later
 - Windows
+
+## FAQ
+
+### Why not on Nuget?
+
+I just want to make sure the library works first as I really can't implement unit testing with a DLL since it requires Cheat Engine running at runtime.
