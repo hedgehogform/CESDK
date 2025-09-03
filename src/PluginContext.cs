@@ -3,49 +3,16 @@ using CESDK.Lua;
 namespace CESDK
 {
     /// <summary>
-    /// Global context providing access to plugin services
+    /// Provides a global shared Lua state.
     /// </summary>
     public static class PluginContext
     {
-        private static LuaEngine? _lua;
+        // The single Lua state, initialized once
+        private static readonly LuaNative _lua = new();
 
         /// <summary>
-        /// Access to the Lua engine
+        /// Access the shared Lua state.
         /// </summary>
-        public static LuaEngine Lua => _lua ?? throw new InvalidOperationException("Plugin not initialized");
-
-        /// <summary>
-        /// Initialize the plugin context (internal use only)
-        /// </summary>
-        internal static void Initialize(LuaEngine lua)
-        {
-            _lua = lua ?? throw new ArgumentNullException(nameof(lua));
-        }
-
-        /// <summary>
-        /// Clean up the plugin context (internal use only)
-        /// </summary>
-        internal static void Cleanup()
-        {
-            _lua = null;
-        }
-
-        /// <summary>
-        /// Process pending Windows messages
-        /// </summary>
-        public static void ProcessMessages()
-        {
-            CESDK.ProcessMessages();
-        }
-
-        /// <summary>
-        /// Check for synchronization events
-        /// </summary>
-        /// <param name="timeout">Timeout in milliseconds</param>
-        /// <returns>True if synchronization occurred</returns>
-        public static bool CheckSynchronize(int timeout)
-        {
-            return CESDK.CheckSynchronize(timeout);
-        }
+        public static LuaNative Lua => _lua;
     }
 }

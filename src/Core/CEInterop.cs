@@ -31,11 +31,11 @@ namespace CESDK.Core
     }
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    internal delegate Boolean DelegateGetVersion([MarshalAs(UnmanagedType.Struct)] ref TPluginVersion pluginVersion, int TPluginVersionSize);
+    internal delegate bool DelegateGetVersion([MarshalAs(UnmanagedType.Struct)] ref TPluginVersion pluginVersion, int TPluginVersionSize);
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    internal delegate Boolean DelegateEnablePlugin([MarshalAs(UnmanagedType.Struct)] ref TExportedFunctions exportedFunctions, UInt32 pluginid);
+    internal delegate bool DelegateEnablePlugin([MarshalAs(UnmanagedType.Struct)] ref TExportedFunctions exportedFunctions, uint pluginid);
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    internal delegate Boolean DelegateDisablePlugin();
+    internal delegate bool DelegateDisablePlugin();
 }
