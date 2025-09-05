@@ -276,19 +276,51 @@ namespace CESDK.Classes
         /// <returns>FoundList object or null if none attached</returns>
         public FoundList? GetAttachedFoundList()
         {
-            return CallMemScanMethod("getAttachedFoundlist", "get attached found list", () =>
+            try
             {
+                EnsureMemScanObject();
+
+                // Push MemScan object
+                lua.PushValue(-1);
+
+                // Get getAttachedFoundlist method
+                lua.GetField(-1, "getAttachedFoundlist");
+                if (!lua.IsFunction(-1))
+                {
+                    lua.Pop(2);
+                    throw new InvalidOperationException("getAttachedFoundlist method not available on MemScan object");
+                }
+
+                // Push self (MemScan object)
+                lua.PushValue(-2);
+
+                // Call getAttachedFoundlist()
+                var result = lua.PCall(1, 1);
+                if (result != 0)
+                {
+                    var error = lua.ToString(-1);
+                    lua.Pop(2);
+                    throw new InvalidOperationException($"getAttachedFoundlist() call failed: {error}");
+                }
+
                 // Check if result is nil
                 if (lua.IsNil(-1))
                 {
+                    lua.Pop(2); // Pop nil result and MemScan object
                     return null;
                 }
 
-                // Create FoundList wrapper and initialize it with the Lua object on the stack
+                // Create FoundList and pass the Lua object reference
                 var foundList = new FoundList();
-                foundList.InitializeWithLuaObject();
+                foundList.SetLuaFoundListObject();
+                
+                lua.Pop(2); // Pop FoundList result and MemScan object
                 return foundList;
-            });
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException)
+            {
+                throw new MemScanException("Failed to get attached found list", ex);
+            }
         }
     }
 

@@ -30,32 +30,14 @@ namespace CESDK.Classes
         }
 
         /// <summary>
-        /// Internal method to initialize with an existing FoundList Lua object on the stack
+        /// Internal method to set this as a wrapper for the current FoundList Lua object
+        /// The FoundList object should be on the Lua stack when this is called
         /// </summary>
-        internal void InitializeWithLuaObject()
+        internal void SetLuaFoundListObject()
         {
-            // The FoundList Lua object should be on top of the stack
-            // Create a reference to it so we can use it later
-            lua.PushValue(-1); // Duplicate the object on stack
-            
-            // Store reference in Lua registry
-            lua.GetGlobal(FOUNDLIST_REFS_TABLE);
-            if (lua.IsNil(-1))
-            {
-                lua.Pop(1);
-                lua.CreateTable();
-                lua.SetGlobal(FOUNDLIST_REFS_TABLE);
-                lua.GetGlobal(FOUNDLIST_REFS_TABLE);
-            }
-            
-            // Generate a unique reference ID
-            _luaObjectRef = GetHashCode();
-            lua.PushInteger(_luaObjectRef);
-            lua.PushValue(-3); // Push the FoundList object
-            lua.SetTable(-3); // _FOUNDLIST_REFS[ref] = foundListObject
-            
-            lua.Pop(2); // Pop registry table and original FoundList object
             _foundListObjectCreated = true;
+            // The FoundList is created by the MemScan and should be accessible through global functions
+            // We don't need to store references since we'll access it through the MemScan object
         }
 
         private void EnsureFoundListObject()
@@ -65,29 +47,57 @@ namespace CESDK.Classes
         }
 
         /// <summary>
-        /// Pushes the FoundList Lua object onto the stack
+        /// Gets the current MemScan's attached FoundList object
         /// </summary>
         private void PushFoundListObject()
         {
             EnsureFoundListObject();
             
-            lua.GetGlobal(FOUNDLIST_REFS_TABLE);
+            // Get the current MemScan object
+            lua.GetGlobal("getCurrentMemscan");
+            if (!lua.IsFunction(-1))
+            {
+                lua.Pop(1);
+                throw new FoundListException("getCurrentMemscan function not available");
+            }
+            
+            var result = lua.PCall(0, 1);
+            if (result != 0)
+            {
+                var error = lua.ToString(-1);
+                lua.Pop(1);
+                throw new FoundListException($"getCurrentMemscan() failed: {error}");
+            }
+            
             if (lua.IsNil(-1))
             {
                 lua.Pop(1);
-                throw new FoundListException("FoundList reference table not found");
+                throw new FoundListException("No current MemScan object available");
             }
             
-            lua.PushInteger(_luaObjectRef);
-            lua.GetTable(-2); // Get _FOUNDLIST_REFS[ref]
+            // Get the attached found list from the MemScan
+            lua.GetField(-1, "getAttachedFoundlist");
+            if (!lua.IsFunction(-1))
+            {
+                lua.Pop(2);
+                throw new FoundListException("getAttachedFoundlist method not available on MemScan object");
+            }
+            
+            lua.PushValue(-2); // Push MemScan object as self parameter
+            result = lua.PCall(1, 1);
+            if (result != 0)
+            {
+                lua.Pop(2);
+                throw new FoundListException("Failed to get attached found list");
+            }
             
             if (lua.IsNil(-1))
             {
                 lua.Pop(2);
-                throw new FoundListException("FoundList object reference not found");
+                throw new FoundListException("No found list attached to current MemScan");
             }
             
-            lua.Remove(-2); // Remove the reference table, leave FoundList object on stack
+            lua.Remove(-2); // Remove MemScan object, keep FoundList on stack
         }
 
         /// <summary>

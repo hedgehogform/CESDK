@@ -34,40 +34,69 @@ namespace CESDK.Classes
             {
                 threadIds.Clear();
 
-                // Create a Lua table to hold the thread list
-                lua.CreateTable();
-                int tableRef = lua.GetTop(); // Keep reference to our table
+                // Create a StringList object for getThreadlist
+                lua.GetGlobal("createStringlist");
+                if (!lua.IsFunction(-1))
+                {
+                    lua.Pop(1);
+                    throw new ThreadListException("createStringlist function not available in this CE version");
+                }
+
+                // Call createStringlist() to create a proper StringList object
+                var result = lua.PCall(0, 1);
+                if (result != 0)
+                {
+                    var error = lua.ToString(-1);
+                    lua.Pop(1);
+                    throw new ThreadListException($"createStringlist() call failed: {error}");
+                }
+
+                // The StringList object should now be on the stack
+                int stringListRef = lua.GetTop(); // Keep reference to our StringList
 
                 // Get getThreadlist function
                 lua.GetGlobal("getThreadlist");
                 if (!lua.IsFunction(-1))
                 {
-                    lua.Pop(1);
+                    lua.Pop(2); // Pop both function and StringList
                     throw new ThreadListException("getThreadlist function not available in this CE version");
                 }
 
-                // Push the table as parameter
-                lua.PushValue(tableRef);
+                // Push the StringList as parameter
+                lua.PushValue(stringListRef);
 
-                // Call getThreadlist(table)
-                var result = lua.PCall(1, 0);
+                // Call getThreadlist(StringList)
+                result = lua.PCall(1, 0);
                 if (result != 0)
                 {
                     var error = lua.ToString(-1);
-                    lua.Pop(1);
+                    lua.Pop(2); // Pop error and StringList
                     throw new ThreadListException($"getThreadlist() call failed: {error}");
                 }
 
-                // Now read the filled table
-                // The table should now contain thread IDs in hex format
-                // Iterate through the table to get all values
-                lua.PushValue(tableRef); // Push table for iteration
-                lua.PushNil(); // First key for lua_next
+                // Now read the filled StringList
+                // According to celua.txt, getThreadlist fills the StringList with format %x (hex)
+                // We need to access the StringList contents using its Count property and indexer
 
-                while (lua.Next(-2) != 0)
+                // Get Count property of the StringList
+                lua.PushValue(stringListRef); // Push StringList object
+                lua.GetField(-1, "Count");
+                if (!lua.IsInteger(-1))
                 {
-                    // Key is at -2, value is at -1
-                    // According to celua.txt, format is %x (hex), so values should be strings
+                    lua.Pop(2); // Pop Count result and StringList
+                    throw new ThreadListException("Could not get Count property from StringList");
+                }
+
+                int count = lua.ToInteger(-1);
+                lua.Pop(1); // Pop Count result, keep StringList
+
+                // Read each string from the StringList using indexer (0-based)
+                for (int i = 0; i < count; i++)
+                {
+                    // Access StringList[i]
+                    lua.PushInteger(i);
+                    lua.GetTable(-2); // StringList[i]
+
                     if (lua.IsString(-1))
                     {
                         var threadId = lua.ToString(-1);
@@ -76,10 +105,10 @@ namespace CESDK.Classes
                             threadIds.Add(threadId);
                         }
                     }
-                    lua.Pop(1); // Remove value, keep key for next iteration
+                    lua.Pop(1); // Pop the string value
                 }
 
-                lua.Pop(1); // Remove table
+                lua.Pop(1); // Pop StringList object
                 _loaded = true;
             }
             catch (Exception ex) when (ex is not ThreadListException)
@@ -173,7 +202,7 @@ namespace CESDK.Classes
         /// <returns>Array of thread ID hex strings</returns>
         public string[] GetAllThreadIds()
         {
-            return threadIds.ToArray();
+            return [.. threadIds];
         }
 
         /// <summary>
