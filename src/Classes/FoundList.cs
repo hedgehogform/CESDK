@@ -13,91 +13,75 @@ namespace CESDK.Classes
     /// <summary>
     /// FoundList class that wraps Cheat Engine's FoundList Lua object for reading scan results
     /// </summary>
-    public class FoundList
+    public class FoundList : CEObjectWrapper
     {
-        private const string FOUNDLIST_REFS_TABLE = "_FOUNDLIST_REFS";
-        private readonly LuaNative lua;
-        private bool _foundListObjectCreated = false;
         private bool _initialized = false;
-        private int _luaObjectRef = -1; // Reference to the FoundList Lua object
 
         /// <summary>
-        /// Creates a FoundList wrapper for an existing Lua FoundList object
+        /// Creates an empty FoundList for setting CE object from stack
         /// </summary>
         internal FoundList()
         {
-            lua = PluginContext.Lua;
+            // Empty constructor for setting CE object from stack
         }
 
         /// <summary>
-        /// Internal method to set this as a wrapper for the current FoundList Lua object
-        /// The FoundList object should be on the Lua stack when this is called
+        /// Creates a FoundList from a MemScan object using createFoundList
         /// </summary>
-        internal void SetLuaFoundListObject()
+        internal FoundList(MemScan memScan)
         {
-            _foundListObjectCreated = true;
-            // The FoundList is created by the MemScan and should be accessible through global functions
-            // We don't need to store references since we'll access it through the MemScan object
+            CreateFoundListFromMemScan(memScan);
+        }
+
+        /// <summary>
+        /// Creates a FoundList from a MemScan object using CE's createFoundList function
+        /// </summary>
+        private void CreateFoundListFromMemScan(MemScan memScan)
+        {
+            try
+            {
+                lua.GetGlobal("createFoundList");
+                if (lua.IsNil(-1))
+                    throw new FoundListException("You have no createFoundList (WTF)");
+
+                lua.PushCEObject(memScan.obj);
+                lua.PCall(1, 1);
+
+                if (lua.IsCEObject(-1))
+                    CEObject = lua.ToCEObject(-1);                        
+                else
+                    throw new FoundListException("No idea what createFoundList returned");
+            }
+            finally
+            {
+                lua.SetTop(0);
+            }
+        }
+
+        /// <summary>
+        /// Sets the CE object from a FoundList object on the Lua stack
+        /// </summary>
+        internal void SetCEObjectFromFoundListOnStack()
+        {
+            if (!lua.IsCEObject(-1))
+                throw new FoundListException("Top of stack is not a FoundList CE object");
+                
+            SetCEObjectFromStack();
         }
 
         private void EnsureFoundListObject()
         {
-            if (!_foundListObjectCreated)
+            if (CEObject == IntPtr.Zero)
                 throw new FoundListException("FoundList object not properly initialized. Use MemScan.GetAttachedFoundList() to get a valid FoundList.");
         }
 
         /// <summary>
-        /// Gets the current MemScan's attached FoundList object
+        /// Pushes the FoundList CE object onto the Lua stack
         /// </summary>
         private void PushFoundListObject()
         {
             EnsureFoundListObject();
-            
-            // Get the current MemScan object
-            lua.GetGlobal("getCurrentMemscan");
-            if (!lua.IsFunction(-1))
-            {
-                lua.Pop(1);
-                throw new FoundListException("getCurrentMemscan function not available");
-            }
-            
-            var result = lua.PCall(0, 1);
-            if (result != 0)
-            {
-                var error = lua.ToString(-1);
-                lua.Pop(1);
-                throw new FoundListException($"getCurrentMemscan() failed: {error}");
-            }
-            
-            if (lua.IsNil(-1))
-            {
-                lua.Pop(1);
-                throw new FoundListException("No current MemScan object available");
-            }
-            
-            // Get the attached found list from the MemScan
-            lua.GetField(-1, "getAttachedFoundlist");
-            if (!lua.IsFunction(-1))
-            {
-                lua.Pop(2);
-                throw new FoundListException("getAttachedFoundlist method not available on MemScan object");
-            }
-            
-            lua.PushValue(-2); // Push MemScan object as self parameter
-            result = lua.PCall(1, 1);
-            if (result != 0)
-            {
-                lua.Pop(2);
-                throw new FoundListException("Failed to get attached found list");
-            }
-            
-            if (lua.IsNil(-1))
-            {
-                lua.Pop(2);
-                throw new FoundListException("No found list attached to current MemScan");
-            }
-            
-            lua.Remove(-2); // Remove MemScan object, keep FoundList on stack
+            PushCEObject();
         }
 
         /// <summary>
@@ -137,77 +121,26 @@ namespace CESDK.Classes
             }
         }
 
-        /// <summary>
-        /// Gets a value from FoundList using property or method fallback
-        /// </summary>
-        private T GetFoundListValue<T>(string propertyName, string methodName, int? index, Func<T> valueExtractor, T defaultValue, string operationName)
+
+        public void Initialize()
         {
             try
             {
-                PushFoundListObject();
+                lua.PushCEObject(CEObject);
 
-                // Try property access first
-                lua.GetField(-1, propertyName);
+                lua.PushString("initialize");
+                lua.GetTable(-2);
 
-                if (!lua.IsNil(-1))
-                {
-                    if (index.HasValue)
-                    {
-                        lua.PushInteger(index.Value);
-                        lua.GetTable(-2);
-                    }
-                    
-                    if (!lua.IsNil(-1))
-                    {
-                        var value = valueExtractor();
-                        lua.Pop(index.HasValue ? 3 : 2); // Pop value, property (and FoundList object)
-                        return value;
-                    }
-                    lua.Pop(1); // Pop nil value
-                }
-
-                // If property doesn't exist or returned nil, try method
-                lua.Pop(1); // Pop property (or nil)
-                lua.GetField(-1, methodName);
                 if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    return defaultValue; // Return default instead of throwing for count
-                }
+                    throw new FoundListException("foundlist with no initialize method");
 
-                // Push self (FoundList object)
-                lua.PushValue(-2);
-                if (index.HasValue)
-                {
-                    lua.PushInteger(index.Value);
-                }
-
-                // Call method
-                var paramCount = index.HasValue ? 2 : 1;
-                var result = lua.PCall(paramCount, 1);
-                if (result != 0)
-                {
-                    lua.Pop(2); // Pop error and FoundList object
-                    return defaultValue;
-                }
-
-                var methodValue = valueExtractor();
-                lua.Pop(2); // Pop value and FoundList object
-                return methodValue;
+                lua.PCall(0, 0);
+                _initialized = true;
             }
-            catch
+            finally
             {
-                return defaultValue;
+                lua.SetTop(0);
             }
-        }
-
-        /// <summary>
-        /// Initializes the FoundList for reading results. Call this when a MemScan has finished scanning.
-        /// </summary>
-        public void Initialize()
-        {
-            CallFoundListMethod("initialize", "initialize FoundList");
-            _initialized = true;
         }
 
         /// <summary>
@@ -222,53 +155,68 @@ namespace CESDK.Classes
         /// <summary>
         /// Gets the number of results found
         /// </summary>
-        /// <returns>Number of results, or -1 if count cannot be retrieved</returns>
-        public int GetCount() =>
-            GetFoundListValue("Count", "getCount", null, () => lua.ToInteger(-1), -1, "get count");
+        public int Count { get { return GetCount(); } }
 
-        /// <summary>
-        /// Gets the number of results found (safe property that doesn't throw)
-        /// </summary>
-        public int Count => GetCount();
-
-        /// <summary>
-        /// Gets the address at the specified index as a string
-        /// </summary>
-        /// <param name="index">Index (0-based)</param>
-        /// <returns>Address as string</returns>
-        public string GetAddress(int index)
+        int GetCount()
         {
             try
             {
-                var result = GetFoundListValue("Address", "getAddress", index, () => lua.ToString(-1) ?? "", "", $"get address at index {index}");
-                if (!string.IsNullOrEmpty(result)) return result;
-                
-                throw new FoundListException("Address property and getAddress method not available on FoundList object");
+                lua.PushCEObject(CEObject);
+                lua.PushString("Count");
+                lua.GetTable(-2);
+
+                return lua.ToInteger(-1);
             }
-            catch (Exception ex) when (ex is not FoundListException)
+            finally
             {
-                throw new FoundListException($"Failed to get address at index {index}", ex);
-            }
+                lua.SetTop(0);
+            }                
         }
 
-        /// <summary>
-        /// Gets the value at the specified index as a string
-        /// </summary>
-        /// <param name="index">Index (0-based)</param>
-        /// <returns>Value as string</returns>
-        public string GetValue(int index)
+        public string GetAddress(int i)
         {
             try
             {
-                var result = GetFoundListValue("Value", "getValue", index, () => lua.ToString(-1) ?? "", "", $"get value at index {index}");
-                if (!string.IsNullOrEmpty(result)) return result;
-                
-                throw new FoundListException("Value property and getValue method not available on FoundList object");
+                lua.PushCEObject(CEObject);
+                lua.PushString("Address");
+                lua.GetTable(-2);
+
+                if (lua.IsTable(-1))
+                {
+                    lua.PushInteger(i);
+                    lua.GetTable(-2); //gets index i from the Address table  (pushInteger increased the stack by 1 so the -1 turned to -2, just in case you wanted to know...)
+                    return lua.ToString(-1) ?? "";
+                }                
             }
-            catch (Exception ex) when (ex is not FoundListException)
+            finally
             {
-                throw new FoundListException($"Failed to get value at index {index}", ex);
+                lua.SetTop(0);
             }
+
+            return "Error";
+        }
+
+        public string GetValue(int i)
+        {
+            try
+            {
+                lua.PushCEObject(CEObject);
+                lua.PushString("Value");
+                lua.GetTable(-2);
+
+                if (lua.IsTable(-1))
+                {
+                    lua.PushInteger(i);
+                    lua.GetTable(-2); //gets index i from the Address table  (pushInteger increased the stack by 1 so the -1 turned to -2, just in case you wanted to know...)
+                    return lua.ToString(-1) ?? "";
+                }
+            }
+            finally
+            {
+                lua.SetTop(0);
+            }
+
+            return "Error";
         }
 
         /// <summary>

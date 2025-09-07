@@ -135,6 +135,10 @@ namespace CESDK.Lua
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void DelegatePushCFunction(IntPtr state, IntPtr function, int upvalues);
+
+        // CE-specific delegate
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate void DelegateLuaPushClassInstance(IntPtr state, IntPtr ceObject);
         #endregion
 
         #region Function Pointers
@@ -174,10 +178,12 @@ namespace CESDK.Lua
         private readonly DelegateNext _next;
         private readonly DelegatePushCFunction _pushCFunction;
 
+        // CE-specific function pointer (instance-specific, not static)
+        private readonly DelegateLuaPushClassInstance? _luaPushClassInstance;
 
         #endregion
 
-        public LuaNative(IntPtr luaState)
+        public LuaNative(IntPtr luaState, IntPtr luaPushClassInstancePtr = default)
         {
             // Load Lua library exactly like the legacy CESDKLua
             IntPtr luaModule = LoadLibraryA("lua53-32.dll");
@@ -224,6 +230,11 @@ namespace CESDK.Lua
             _pushCFunction = GetDelegate<DelegatePushCFunction>(luaModule, "lua_pushcclosure");
 
             _luaState = luaState;
+            
+            // Initialize CE function if provided
+            _luaPushClassInstance = luaPushClassInstancePtr != IntPtr.Zero
+                ? Marshal.GetDelegateForFunctionPointer<DelegateLuaPushClassInstance>(luaPushClassInstancePtr)
+                : null;
         }
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
@@ -408,6 +419,19 @@ namespace CESDK.Lua
             _keepAlive.Add(function);
             var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
             _pushCFunction(_luaState, functionPtr, 0);
+        }
+
+        /// <summary>
+        /// Pushes a CE object onto the Lua stack using CE's LuaPushClassInstance function.
+        /// </summary>
+        /// <param name="ceObject">Pointer to the CE object.</param>
+        /// <exception cref="InvalidOperationException">Thrown if LuaPushClassInstance is not available.</exception>
+        public void PushCEObject(IntPtr ceObject)
+        {
+            if (_luaPushClassInstance == null)
+                throw new InvalidOperationException("LuaPushClassInstance not available. Initialize LuaNative with CE function pointer.");
+            
+            _luaPushClassInstance(_luaState, ceObject);
         }
 
         /// <summary>

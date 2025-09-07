@@ -45,9 +45,9 @@ namespace CESDK
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate bool delegateCheckSynchronize(int timeout);
 
-        private delegateGetVersion? delGetVersion;
-        private delegateEnablePlugin? delEnablePlugin;
-        private delegateDisablePlugin? delDisablePlugin;
+        private readonly delegateGetVersion? delGetVersion;
+        private readonly delegateEnablePlugin? delEnablePlugin;
+        private readonly delegateDisablePlugin? delDisablePlugin;
         private delegateProcessMessages? delProcessMessages;
         private delegateCheckSynchronize? delCheckSynchronize;
 
@@ -104,7 +104,7 @@ namespace CESDK
                 mainSelf.delCheckSynchronize ??= Marshal.GetDelegateForFunctionPointer<delegateCheckSynchronize>(mainSelf.pluginExports.CheckSynchronize);
 
                 // Initialize Lua pointer for CE
-                PluginContext.Initialize(ExportedFunctions.GetLuaState);
+                PluginContext.Initialize(ExportedFunctions.GetLuaState, ExportedFunctions.LuaPushClassInstance);
 
                 // Call the plugin enable hook
                 CurrentPlugin.EnablePlugin();

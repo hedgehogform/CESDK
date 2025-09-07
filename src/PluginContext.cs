@@ -26,18 +26,28 @@ namespace CESDK
         }
 
         /// <summary>
-        /// Initialize the shared Lua state with CE's GetLuaState function pointer.
+        /// Initialize the shared Lua state with CE's exported functions.
         /// </summary>
         /// <param name="getLuaStatePtr">Function pointer to CE's GetLuaState function</param>
-        public static void Initialize(IntPtr getLuaStatePtr)
+        /// <param name="luaPushClassInstancePtr">Function pointer to CE's LuaPushClassInstance function</param>
+        public static void Initialize(IntPtr getLuaStatePtr, IntPtr luaPushClassInstancePtr)
         {
             if (_lua == null)
             {
                 // Call CE's GetLuaState function to get the actual Lua state
                 var getLuaState = Marshal.GetDelegateForFunctionPointer<GetLuaStateDelegate>(getLuaStatePtr);
                 var actualLuaState = getLuaState();
-                _lua = new LuaNative(actualLuaState);
+                _lua = new LuaNative(actualLuaState, luaPushClassInstancePtr);
             }
+        }
+
+        /// <summary>
+        /// Initialize with just GetLuaState (for backward compatibility)
+        /// </summary>
+        /// <param name="getLuaStatePtr">Function pointer to CE's GetLuaState function</param>
+        public static void Initialize(IntPtr getLuaStatePtr)
+        {
+            Initialize(getLuaStatePtr, IntPtr.Zero);
         }
         
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
