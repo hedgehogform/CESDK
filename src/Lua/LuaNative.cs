@@ -7,7 +7,7 @@ namespace CESDK.Lua
     /// <summary>
     /// Low-level Lua API bindings - only the essential functions
     /// </summary>
-    public class LuaNative
+    public sealed class LuaNative
     {
 
 
@@ -29,6 +29,10 @@ namespace CESDK.Lua
         #endregion
 
         #region Delegates
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate IntPtr GetLuaStateDelegate();
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int DelegateGetTop(IntPtr state);
 
@@ -230,7 +234,7 @@ namespace CESDK.Lua
             _pushCFunction = GetDelegate<DelegatePushCFunction>(luaModule, "lua_pushcclosure");
 
             _luaState = luaState;
-            
+
             // Initialize CE function if provided
             _luaPushClassInstance = luaPushClassInstancePtr != IntPtr.Zero
                 ? Marshal.GetDelegateForFunctionPointer<DelegateLuaPushClassInstance>(luaPushClassInstancePtr)
@@ -262,6 +266,21 @@ namespace CESDK.Lua
         private readonly List<LuaCFunction> _keepAlive = [];
 
         #region Public API
+
+        /// <summary>
+        /// Factory that converts the function pointer and calls it.
+        /// </summary>
+        public static LuaNative CreateFromPointers(IntPtr getLuaStatePtr, IntPtr luaPushClassInstancePtr)
+        {
+            // 1. Convert to delegate
+            var getLuaState = Marshal.GetDelegateForFunctionPointer<GetLuaStateDelegate>(getLuaStatePtr);
+            // 2. Call to get the real lua_State*
+            IntPtr actualLuaState = getLuaState();
+
+            // here you can also store luaPushClassInstancePtr if needed
+
+            return new LuaNative(actualLuaState);
+        }
 
         /// <summary>
         /// Gets the number of elements currently on the Lua stack.
@@ -430,7 +449,7 @@ namespace CESDK.Lua
         {
             if (_luaPushClassInstance == null)
                 throw new InvalidOperationException("LuaPushClassInstance not available. Initialize LuaNative with CE function pointer.");
-            
+
             _luaPushClassInstance(_luaState, ceObject);
         }
 

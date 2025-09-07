@@ -32,25 +32,9 @@ namespace CESDK
         /// <param name="luaPushClassInstancePtr">Function pointer to CE's LuaPushClassInstance function</param>
         public static void Initialize(IntPtr getLuaStatePtr, IntPtr luaPushClassInstancePtr)
         {
-            if (_lua == null)
-            {
-                // Call CE's GetLuaState function to get the actual Lua state
-                var getLuaState = Marshal.GetDelegateForFunctionPointer<GetLuaStateDelegate>(getLuaStatePtr);
-                var actualLuaState = getLuaState();
-                _lua = new LuaNative(actualLuaState, luaPushClassInstancePtr);
-            }
+            // only forward the raw pointers
+            _lua ??= LuaNative.CreateFromPointers(getLuaStatePtr, luaPushClassInstancePtr);
         }
 
-        /// <summary>
-        /// Initialize with just GetLuaState (for backward compatibility)
-        /// </summary>
-        /// <param name="getLuaStatePtr">Function pointer to CE's GetLuaState function</param>
-        public static void Initialize(IntPtr getLuaStatePtr)
-        {
-            Initialize(getLuaStatePtr, IntPtr.Zero);
-        }
-        
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        private delegate IntPtr GetLuaStateDelegate();
     }
 }
