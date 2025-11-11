@@ -507,7 +507,7 @@ namespace CESDK.Lua
         public string ToString(int index)
         {
             var ptr = _toString(_luaState, index, IntPtr.Zero);
-            return ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) : string.Empty;
+            return ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) ?? string.Empty : string.Empty;
         }
 
         /// <summary>

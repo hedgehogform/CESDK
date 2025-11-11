@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using CESDK.Lua;
 using System.IO;
@@ -148,8 +149,14 @@ namespace CESDK
 
         #endregion
 
+#if NETFRAMEWORK
         public static int CEPluginInitialize(string parameters)
         {
+            UInt64 args = UInt64.Parse(parameters);
+#else
+        public static int CEPluginInitialize(IntPtr args, int size)
+        {
+#endif
             try
             {
                 mainSelf ??= new CESDK();
@@ -171,21 +178,32 @@ namespace CESDK
                     PluginNamePtr = Marshal.StringToHGlobalAnsi(_currentPlugin.Name);
                 }
 
-                var address = ulong.Parse(parameters);
+                UInt64 address = (UInt64)args;
                 var pluginInit = new TPluginInit
                 {
                     name = PluginNamePtr,
-                    GetVersion = Marshal.GetFunctionPointerForDelegate(mainSelf.delGetVersion),
-                    EnablePlugin = Marshal.GetFunctionPointerForDelegate(mainSelf.delEnablePlugin),
-                    DisablePlugin = Marshal.GetFunctionPointerForDelegate(mainSelf.delDisablePlugin),
+                    GetVersion = Marshal.GetFunctionPointerForDelegate(mainSelf.delGetVersion!),
+                    EnablePlugin = Marshal.GetFunctionPointerForDelegate(mainSelf.delEnablePlugin!),
+                    DisablePlugin = Marshal.GetFunctionPointerForDelegate(mainSelf.delDisablePlugin!),
                     version = PLUGIN_VERSION
                 };
 
                 Marshal.StructureToPtr(pluginInit, (IntPtr)address, false);
                 return 1;
             }
-            catch
+            catch (Exception ex)
             {
+                try
+                {
+                    PluginLogger.LogException(ex);
+                }
+                catch
+                {
+                    // Fallback to console if logger fails
+                }
+
+                Console.WriteLine("CEPluginInitialize Exception:");
+                Console.WriteLine(ex.ToString());
                 return 0;
             }
         }

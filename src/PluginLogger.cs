@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Reflection;
 
 namespace CESDK
 {
@@ -13,7 +12,7 @@ namespace CESDK
             try
             {
                 // Get the directory where Cheat Engine is running from
-                var ceDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
+                var ceDirectory = AppContext.BaseDirectory;
                 if (string.IsNullOrEmpty(ceDirectory))
                     ceDirectory = Environment.CurrentDirectory;
 
