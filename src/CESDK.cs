@@ -104,8 +104,8 @@ namespace CESDK
                 mainSelf.delProcessMessages ??= Marshal.GetDelegateForFunctionPointer<delegateProcessMessages>(mainSelf.pluginExports.ProcessMessages);
                 mainSelf.delCheckSynchronize ??= Marshal.GetDelegateForFunctionPointer<delegateCheckSynchronize>(mainSelf.pluginExports.CheckSynchronize);
 
-                // Initialize Lua pointer for CE
-                PluginContext.Initialize(ExportedFunctions.GetLuaState, ExportedFunctions.LuaPushClassInstance);
+                // Initialize Lua with CE's exported functions
+                PluginContext.Initialize(ExportedFunctions.GetLuaState, ExportedFunctions.LuaRegister, ExportedFunctions.LuaPushClassInstance);
 
                 // Call the plugin enable hook
                 CurrentPlugin.EnablePlugin();

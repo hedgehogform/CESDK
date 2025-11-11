@@ -24,7 +24,7 @@ namespace CESDK.Classes
         {
             if (CEObject == IntPtr.Zero)
                 throw new InvalidOperationException("CE object is not initialized");
-                
+
             lua.PushCEObject(CEObject);
         }
 
@@ -35,7 +35,7 @@ namespace CESDK.Classes
         {
             if (!lua.IsCEObject(-1))
                 throw new InvalidOperationException("Top of stack is not a CE object");
-                
+
             CEObject = lua.ToCEObject(-1);
         }
 
@@ -49,7 +49,7 @@ namespace CESDK.Classes
                     PushCEObject();
                     lua.PushString("destroy");
                     lua.GetTable(-2);
-                    
+
                     if (lua.IsFunction(-1))
                     {
                         lua.PushValue(-2); // Push self
@@ -59,7 +59,7 @@ namespace CESDK.Classes
                     {
                         lua.Pop(1); // Pop non-function
                     }
-                    
+
                     lua.Pop(1); // Pop CE object
                 }
                 catch

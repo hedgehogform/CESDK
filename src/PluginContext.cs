@@ -29,11 +29,12 @@ namespace CESDK
         /// Initialize the shared Lua state with CE's exported functions.
         /// </summary>
         /// <param name="getLuaStatePtr">Function pointer to CE's GetLuaState function</param>
+        /// <param name="luaRegisterPtr">Function pointer to CE's LuaRegister function</param>
         /// <param name="luaPushClassInstancePtr">Function pointer to CE's LuaPushClassInstance function</param>
-        public static void Initialize(IntPtr getLuaStatePtr, IntPtr luaPushClassInstancePtr)
+        public static void Initialize(IntPtr getLuaStatePtr, IntPtr luaRegisterPtr, IntPtr luaPushClassInstancePtr)
         {
             // only forward the raw pointers
-            _lua ??= LuaNative.CreateFromPointers(getLuaStatePtr, luaPushClassInstancePtr);
+            _lua ??= LuaNative.CreateFromPointers(getLuaStatePtr, luaRegisterPtr, luaPushClassInstancePtr);
         }
 
     }

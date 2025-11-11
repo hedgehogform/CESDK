@@ -33,6 +33,12 @@ namespace CESDK.Lua
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate IntPtr GetLuaStateDelegate();
 
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate IntPtr LuaRegisterDelegate(IntPtr luaState, [MarshalAs(UnmanagedType.LPStr)] string functionName, LuaCFunction function);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate void LuaPushClassInstanceDelegate(IntPtr luaState, IntPtr instance);
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int DelegateGetTop(IntPtr state);
 
@@ -142,11 +148,18 @@ namespace CESDK.Lua
 
         // CE-specific delegate
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        private delegate void DelegateLuaPushClassInstance(IntPtr state, IntPtr ceObject);
+        public delegate void DelegateLuaPushClassInstance(IntPtr state, IntPtr ceObject);
         #endregion
 
         #region Function Pointers
-        private readonly IntPtr _luaState;
+        private readonly GetLuaStateDelegate _getLuaState;
+        private readonly LuaRegisterDelegate _luaRegister;
+        private readonly DelegateLuaPushClassInstance _luaPushClassInstance;
+
+        /// <summary>
+        /// Gets the current Lua state. This is called dynamically as the state may change.
+        /// </summary>
+        private IntPtr LuaState => _getLuaState();
         private readonly DelegateGetTop _getTop;
         private readonly DelegateSetTop _setTop;
         private readonly DelegateGetGlobal _getGlobal;
@@ -182,12 +195,9 @@ namespace CESDK.Lua
         private readonly DelegateNext _next;
         private readonly DelegatePushCFunction _pushCFunction;
 
-        // CE-specific function pointer (instance-specific, not static)
-        private readonly DelegateLuaPushClassInstance? _luaPushClassInstance;
-
         #endregion
 
-        public LuaNative(IntPtr luaState, IntPtr luaPushClassInstancePtr = default)
+        private LuaNative(IntPtr getLuaStatePtr, IntPtr luaRegisterPtr, IntPtr luaPushClassInstancePtr)
         {
             // Load Lua library exactly like the legacy CESDKLua
             IntPtr luaModule = LoadLibraryA("lua53-32.dll");
@@ -233,12 +243,10 @@ namespace CESDK.Lua
             _next = GetDelegate<DelegateNext>(luaModule, "lua_next");
             _pushCFunction = GetDelegate<DelegatePushCFunction>(luaModule, "lua_pushcclosure");
 
-            _luaState = luaState;
-
-            // Initialize CE function if provided
-            _luaPushClassInstance = luaPushClassInstancePtr != IntPtr.Zero
-                ? Marshal.GetDelegateForFunctionPointer<DelegateLuaPushClassInstance>(luaPushClassInstancePtr)
-                : null;
+            // Store CE-specific delegates so we can call them dynamically
+            _getLuaState = Marshal.GetDelegateForFunctionPointer<GetLuaStateDelegate>(getLuaStatePtr);
+            _luaRegister = Marshal.GetDelegateForFunctionPointer<LuaRegisterDelegate>(luaRegisterPtr);
+            _luaPushClassInstance = Marshal.GetDelegateForFunctionPointer<DelegateLuaPushClassInstance>(luaPushClassInstancePtr);
         }
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
@@ -268,18 +276,20 @@ namespace CESDK.Lua
         #region Public API
 
         /// <summary>
-        /// Factory that converts the function pointer and calls it.
+        /// Factory that creates a LuaNative instance from CE's exported function pointers.
         /// </summary>
-        public static LuaNative CreateFromPointers(IntPtr getLuaStatePtr, IntPtr luaPushClassInstancePtr)
+        public static LuaNative CreateFromPointers(IntPtr getLuaStatePtr, IntPtr luaRegisterPtr, IntPtr luaPushClassInstancePtr)
         {
-            // 1. Convert to delegate
-            var getLuaState = Marshal.GetDelegateForFunctionPointer<GetLuaStateDelegate>(getLuaStatePtr);
-            // 2. Call to get the real lua_State*
-            IntPtr actualLuaState = getLuaState();
-
-            // here you can also store luaPushClassInstancePtr if needed
-
-            return new LuaNative(actualLuaState);
+            try
+            {
+                // Pass the pointers directly - don't call GetLuaState yet
+                // The LuaNative constructor will store the delegates and call them dynamically
+                return new LuaNative(getLuaStatePtr, luaRegisterPtr, luaPushClassInstancePtr);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to initialize LuaNative from pointers: {ex.Message}", ex);
+            }
         }
 
         /// <summary>
@@ -289,7 +299,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// This is equivalent to the index of the top element. A stack with one element has top = 1.
         /// </remarks>
-        public int GetTop() => _getTop(_luaState);
+        public int GetTop() => _getTop(LuaState);
 
         /// <summary>
         /// Sets the stack top to the specified index, effectively resizing the stack.
@@ -300,7 +310,7 @@ namespace CESDK.Lua
         /// <para>If the new top is smaller, elements above the new top are discarded.</para>
         /// <para>Use index 0 to clear the entire stack.</para>
         /// </remarks>
-        public void SetTop(int index) => _setTop(_luaState, index);
+        public void SetTop(int index) => _setTop(LuaState, index);
 
         /// <summary>
         /// Pops (removes) the specified number of elements from the top of the stack.
@@ -319,7 +329,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// If the global variable doesn't exist, nil is pushed onto the stack.
         /// </remarks>
-        public int GetGlobal(string name) => _getGlobal(_luaState, name);
+        public int GetGlobal(string name) => _getGlobal(LuaState, name);
 
         /// <summary>
         /// Sets the value at the top of the stack as a global variable.
@@ -328,7 +338,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// The value at the top of the stack is popped and assigned to the global variable.
         /// </remarks>
-        public void SetGlobal(string name) => _setGlobal(_luaState, name);
+        public void SetGlobal(string name) => _setGlobal(LuaState, name);
 
         /// <summary>
         /// Pushes a string value onto the Lua stack.
@@ -337,30 +347,30 @@ namespace CESDK.Lua
         /// <remarks>
         /// Lua creates an internal copy of the string, so the original can be safely modified or freed.
         /// </remarks>
-        public void PushString(string value) => _pushString(_luaState, value);
+        public void PushString(string value) => _pushString(LuaState, value);
 
         /// <summary>
         /// Pushes an integer value onto the Lua stack.
         /// </summary>
         /// <param name="value">The integer value to push.</param>
-        public void PushInteger(long value) => _pushInteger(_luaState, value);
+        public void PushInteger(long value) => _pushInteger(LuaState, value);
 
         /// <summary>
         /// Pushes a floating-point number onto the Lua stack.
         /// </summary>
         /// <param name="value">The floating-point value to push.</param>
-        public void PushNumber(double value) => _pushNumber(_luaState, value);
+        public void PushNumber(double value) => _pushNumber(LuaState, value);
 
         /// <summary>
         /// Pushes a boolean value onto the Lua stack.
         /// </summary>
         /// <param name="value">The boolean value to push.</param>
-        public void PushBoolean(bool value) => _pushBoolean(_luaState, value);
+        public void PushBoolean(bool value) => _pushBoolean(LuaState, value);
 
         /// <summary>
         /// Pushes a nil value onto the Lua stack.
         /// </summary>
-        public void PushNil() => _pushNil(_luaState);
+        public void PushNil() => _pushNil(LuaState);
 
         /// <summary>
         /// Pushes a copy of the value at the specified index onto the top of the stack.
@@ -369,7 +379,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// The original value remains at its position - this creates a copy on top of the stack.
         /// </remarks>
-        public void PushValue(int index) => _pushValue(_luaState, index);
+        public void PushValue(int index) => _pushValue(LuaState, index);
 
         /// <summary>
         /// Creates a new empty table and pushes it onto the stack.
@@ -379,35 +389,35 @@ namespace CESDK.Lua
         /// <remarks>
         /// The size parameters are optimization hints to pre-allocate the table structure.
         /// </remarks>
-        public void CreateTable(int arraySize = 0, int recordSize = 0) => _createTable(_luaState, arraySize, recordSize);
+        public void CreateTable(int arraySize = 0, int recordSize = 0) => _createTable(LuaState, arraySize, recordSize);
 
         /// <summary>
         /// Gets the type of the value at the specified stack index.
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>A Lua type constant (LUA_T* values).</returns>
-        public int Type(int index) => _type(_luaState, index);
+        public int Type(int index) => _type(LuaState, index);
 
         /// <summary>
         /// Checks if the value at the specified index is a string (or convertible to string).
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a string or number (numbers are convertible to strings).</returns>
-        public bool IsString(int index) => _isString(_luaState, index);
+        public bool IsString(int index) => _isString(LuaState, index);
 
         /// <summary>
         /// Checks if the value at the specified index is a number (or convertible to number).
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a number or numeric string.</returns>
-        public bool IsNumber(int index) => _isNumber(_luaState, index);
+        public bool IsNumber(int index) => _isNumber(LuaState, index);
 
         /// <summary>
         /// Checks if the value at the specified index is an integer.
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is an integer number.</returns>
-        public bool IsInteger(int index) => _isInteger(_luaState, index);
+        public bool IsInteger(int index) => _isInteger(LuaState, index);
 
         /// <summary>
         /// Checks if the value at the specified index is a boolean.
@@ -428,7 +438,7 @@ namespace CESDK.Lua
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is a C function (not a Lua function).</returns>
-        public bool IsCFunction(int index) => _isCFunction(_luaState, index);
+        public bool IsCFunction(int index) => _isCFunction(LuaState, index);
 
         public void PushCFunction(LuaCFunction function)
         {
@@ -437,7 +447,7 @@ namespace CESDK.Lua
 
             _keepAlive.Add(function);
             var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
-            _pushCFunction(_luaState, functionPtr, 0);
+            _pushCFunction(LuaState, functionPtr, 0);
         }
 
         /// <summary>
@@ -450,7 +460,7 @@ namespace CESDK.Lua
             if (_luaPushClassInstance == null)
                 throw new InvalidOperationException("LuaPushClassInstance not available. Initialize LuaNative with CE function pointer.");
 
-            _luaPushClassInstance(_luaState, ceObject);
+            _luaPushClassInstance(LuaState, ceObject);
         }
 
         /// <summary>
@@ -458,7 +468,7 @@ namespace CESDK.Lua
         /// </summary>
         /// <param name="index">The stack index to check.</param>
         /// <returns>True if the value is userdata (light or heavy).</returns>
-        public bool IsUserData(int index) => _isUserData(_luaState, index);
+        public bool IsUserData(int index) => _isUserData(LuaState, index);
 
         /// <summary>
         /// Checks if the value at the specified index is a table.
@@ -506,7 +516,7 @@ namespace CESDK.Lua
         /// </remarks>
         public string ToString(int index)
         {
-            var ptr = _toString(_luaState, index, IntPtr.Zero);
+            var ptr = _toString(LuaState, index, IntPtr.Zero);
             return ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) ?? string.Empty : string.Empty;
         }
 
@@ -518,7 +528,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// Numbers and numeric strings are converted to integers. Other types return 0.
         /// </remarks>
-        public int ToInteger(int index) => (int)_toInteger(_luaState, index, IntPtr.Zero);
+        public int ToInteger(int index) => (int)_toInteger(LuaState, index, IntPtr.Zero);
 
         /// <summary>
         /// Converts the value at the specified index to a floating-point number.
@@ -528,7 +538,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// Numbers and numeric strings are converted to doubles. Other types return 0.0.
         /// </remarks>
-        public double ToNumber(int index) => _toNumber(_luaState, index, IntPtr.Zero);
+        public double ToNumber(int index) => _toNumber(LuaState, index, IntPtr.Zero);
 
         /// <summary>
         /// Converts the value at the specified index to a boolean.
@@ -538,7 +548,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// In Lua, only nil and false are considered false. All other values (including 0) are true.
         /// </remarks>
-        public bool ToBoolean(int index) => _toBoolean(_luaState, index);
+        public bool ToBoolean(int index) => _toBoolean(LuaState, index);
 
         /// <summary>
         /// Gets the raw userdata pointer at the specified index.
@@ -548,7 +558,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// This returns the actual memory address of the userdata block, not its contents.
         /// </remarks>
-        public IntPtr ToUserData(int index) => _toUserData(_luaState, index);
+        public IntPtr ToUserData(int index) => _toUserData(LuaState, index);
 
         /// <summary>
         /// Calls a function in protected mode (with error handling).
@@ -561,7 +571,7 @@ namespace CESDK.Lua
         /// <para>On success, arguments and function are removed, and results are pushed.</para>
         /// <para>On error, the error message is pushed onto the stack.</para>
         /// </remarks>
-        public int PCall(int nargs, int nresults) => _pcall(_luaState, nargs, nresults, 0);
+        public int PCall(int nargs, int nresults) => _pcall(LuaState, nargs, nresults, 0);
         /// <summary>
         /// Calls a function without error protection.
         /// </summary>
@@ -571,7 +581,7 @@ namespace CESDK.Lua
         /// <para>Unlike PCall, this will terminate the program if an error occurs.</para>
         /// <para>Use PCall for safer function calls with error handling.</para>
         /// </remarks>
-        public void Call(int nargs, int nresults) => _call(_luaState, nargs, nresults, IntPtr.Zero, IntPtr.Zero);
+        public void Call(int nargs, int nresults) => _call(LuaState, nargs, nresults, IntPtr.Zero, IntPtr.Zero);
         /// <summary>
         /// Loads and compiles a Lua script from a string.
         /// </summary>
@@ -582,7 +592,7 @@ namespace CESDK.Lua
         /// <para>On error, an error message is pushed onto the stack.</para>
         /// <para>Use Call or PCall to execute the loaded function.</para>
         /// </remarks>
-        public int LoadString(string script) => _loadString(_luaState, script);
+        public int LoadString(string script) => _loadString(LuaState, script);
 
         /// <summary>
         /// Gets a value from a table using the key at the top of the stack.
@@ -594,7 +604,7 @@ namespace CESDK.Lua
         /// <para>The key is popped from the stack, and the corresponding value is pushed.</para>
         /// <para>If the key doesn't exist, nil is pushed onto the stack.</para>
         /// </remarks>
-        public int GetTable(int index) => _getTable(_luaState, index);
+        public int GetTable(int index) => _getTable(LuaState, index);
 
         /// <summary>
         /// Gets a field from a table and pushes its value onto the stack.
@@ -606,14 +616,14 @@ namespace CESDK.Lua
         /// <para>This function gets the value t[key] where t is the table at the given index.</para>
         /// <para>The retrieved value is pushed onto the stack.</para>
         /// </remarks>
-        public int GetField(int index, string key) => _getField(_luaState, index, key);
+        public int GetField(int index, string key) => _getField(LuaState, index, key);
 
         /// <summary>
         /// Sets a field in a table.
         /// </summary>
         /// <param name="index">The stack index of the table.</param>
         /// <param name="key">The field name to set.</param>
-        public void SetField(int index, string key) => _setField(_luaState, index, key);
+        public void SetField(int index, string key) => _setField(LuaState, index, key);
         /// <summary>
         /// Sets a value in a table using the key and value at the top of the stack.
         /// </summary>
@@ -622,7 +632,7 @@ namespace CESDK.Lua
         /// <para>The value should be at the top of the stack, and the key just below it.</para>
         /// <para>Both the key and value are popped from the stack during this operation.</para>
         /// </remarks>
-        public void SetTable(int index) => _setTable(_luaState, index);
+        public void SetTable(int index) => _setTable(LuaState, index);
 
         /// <summary>
         /// Rotates stack elements between the valid index and the top of the stack.
@@ -633,7 +643,7 @@ namespace CESDK.Lua
         /// <para>Elements are rotated n positions in the direction of the top.</para>
         /// <para>For n=1, the top element moves down and others move up one position.</para>
         /// </remarks>
-        public void Rotate(int index, int n) => _rotate(_luaState, index, n);
+        public void Rotate(int index, int n) => _rotate(LuaState, index, n);
 
         /// <summary>
         /// Copies a value from one stack position to another.
@@ -643,7 +653,7 @@ namespace CESDK.Lua
         /// <remarks>
         /// The value at the destination is overwritten without affecting other stack positions.
         /// </remarks>
-        public void Copy(int fromIndex, int toIndex) => _copy(_luaState, fromIndex, toIndex);
+        public void Copy(int fromIndex, int toIndex) => _copy(LuaState, fromIndex, toIndex);
 
         /// <summary>
         /// Gets the raw length of a value (for strings, tables, and userdata).
@@ -654,7 +664,7 @@ namespace CESDK.Lua
         /// <para>For tables, this only counts the array part, not the hash part.</para>
         /// <para>This is equivalent to the # operator in Lua for most types.</para>
         /// </remarks>
-        public int RawLen(int index) => _rawLen(_luaState, index);
+        public int RawLen(int index) => _rawLen(LuaState, index);
 
         /// <summary>
         /// Removes the element at the specified index, shifting other elements down.
@@ -759,7 +769,7 @@ namespace CESDK.Lua
         /// }
         /// </code>
         /// </example>
-        public int Next(int index) => _next(_luaState, index);
+        public int Next(int index) => _next(LuaState, index);
         #endregion
 
         #region Convenience Methods
@@ -848,20 +858,48 @@ namespace CESDK.Lua
 
 
         /// <summary>
-        /// Registers a C# function as a global Lua function.
+        /// Registers a C# function as a global Lua function using standard Lua API.
         /// </summary>
+        /// <remarks>
+        /// This uses the standard Lua API. For CE plugins, prefer using RegisterCEFunction which uses CE's LuaRegister.
+        /// </remarks>
         public void RegisterFunction(string name, Action action)
         {
             // wrap user action into a LuaCFunction
             int wrapper(IntPtr state)
             {
-                action(); // call the user’s void method
+                action(); // call the user's void method
                 return 0; // no return values pushed
             }
 
             // equivalent to lua_register(L,name,f)
             PushCFunction(wrapper);
             SetGlobal(name);
+        }
+
+        /// <summary>
+        /// Registers a C# function with CE's Lua environment using CE's LuaRegister.
+        /// This is the preferred method for CE plugins as it properly handles function lifecycle.
+        /// </summary>
+        /// <param name="functionName">The name of the Lua function to register</param>
+        /// <param name="function">The C# function to call when the Lua function is invoked</param>
+        /// <remarks>
+        /// This uses CE's LuaRegister which ensures proper integration with CE's Lua environment,
+        /// including garbage collection prevention and state management.
+        /// </remarks>
+        public void RegisterCEFunction(string functionName, LuaCFunction function)
+        {
+            if (_luaRegister == null)
+                throw new InvalidOperationException("LuaRegister not available. Initialize LuaNative with CE function pointers.");
+
+            if (function == null)
+                throw new ArgumentNullException(nameof(function));
+
+            // Keep the function alive to prevent garbage collection
+            _keepAlive.Add(function);
+
+            // Register with CE's LuaRegister - it uses the dynamic LuaState
+            _luaRegister(LuaState, functionName, function);
         }
 
         #endregion
