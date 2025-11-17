@@ -169,31 +169,19 @@ namespace CESDK.Classes
         /// Gets thread information at the specified index
         /// </summary>
         /// <param name="index">Index (0-based)</param>
-        /// <returns>ThreadInfo object</returns>
-        public ThreadInfo GetThreadInfo(int index)
+        /// <returns>Thread ID as hex string</returns>
+        public string GetThreadInfo(int index)
         {
-            var threadIdHex = GetThreadId(index);
-            var threadIdInt = GetThreadIdAsInt(index);
-
-            return new ThreadInfo
-            {
-                Id = threadIdInt,
-                HexId = threadIdHex
-            };
+            return GetThreadId(index);
         }
 
         /// <summary>
         /// Gets all thread information
         /// </summary>
-        /// <returns>Array of ThreadInfo objects</returns>
-        public ThreadInfo[] GetAllThreads()
+        /// <returns>Array of thread ID hex strings</returns>
+        public string[] GetAllThreads()
         {
-            var threads = new ThreadInfo[threadIds.Count];
-            for (int i = 0; i < threadIds.Count; i++)
-            {
-                threads[i] = GetThreadInfo(i);
-            }
-            return threads;
+            return [.. threadIds];
         }
 
         /// <summary>
@@ -223,33 +211,12 @@ namespace CESDK.Classes
         /// Indexer for thread access
         /// </summary>
         /// <param name="index">Index (0-based)</param>
-        /// <returns>ThreadInfo object</returns>
-        public ThreadInfo this[int index] => GetThreadInfo(index);
+        /// <returns>Thread ID as hex string</returns>
+        public string this[int index] => GetThreadInfo(index);
 
         /// <summary>
         /// Gets whether the thread list has been loaded
         /// </summary>
         public bool IsLoaded => _loaded;
-    }
-
-    /// <summary>
-    /// Information about a thread
-    /// </summary>
-    public class ThreadInfo
-    {
-        /// <summary>
-        /// Thread ID as integer
-        /// </summary>
-        public int Id { get; set; }
-
-        /// <summary>
-        /// Thread ID as hex string (original format from getThreadlist)
-        /// </summary>
-        public string HexId { get; set; } = "";
-
-        public override string ToString()
-        {
-            return $"Thread {Id} (0x{Id:X})";
-        }
     }
 }
