@@ -147,6 +147,58 @@ namespace CESDK
             return mainSelf?.delCheckSynchronize?.Invoke(timeout) ?? false;
         }
 
+        /// <summary>
+        /// Executes an action on the GUI thread using CE's synchronize() function.
+        /// This is required for operations that interact with CE's UI components like the address list.
+        /// </summary>
+        /// <param name="action">The action to execute on the GUI thread</param>
+        public static void Synchronize(Action action)
+        {
+            var lua = PluginContext.Lua;
+            Exception? caughtException = null;
+
+            // Register a temporary Lua function that will call our action
+            lua.RegisterFunction("__cesdk_sync_callback", () =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    caughtException = ex;
+                }
+            });
+
+            try
+            {
+                // Call synchronize with our callback
+                lua.DoString("synchronize(__cesdk_sync_callback)");
+
+                // If the action threw an exception, rethrow it
+                if (caughtException != null)
+                    throw caughtException;
+            }
+            finally
+            {
+                // Clean up the global function
+                lua.DoString("__cesdk_sync_callback = nil");
+            }
+        }
+
+        /// <summary>
+        /// Executes a function on the GUI thread and returns the result.
+        /// </summary>
+        /// <typeparam name="T">The return type</typeparam>
+        /// <param name="func">The function to execute on the GUI thread</param>
+        /// <returns>The result of the function</returns>
+        public static T Synchronize<T>(Func<T> func)
+        {
+            T result = default!;
+            Synchronize(() => { result = func(); });
+            return result;
+        }
+
         #endregion
 
 #if NETFRAMEWORK
