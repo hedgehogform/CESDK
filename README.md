@@ -8,7 +8,7 @@ A C# wrapper library for developing plugins for Cheat Engine. Provides managed .
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhedgehogform%2FCESDK?ref=badge_shield)
 
-This project is currently under active development. The core SDK infrastructure is implemented but many features are still being developed and tested.
+This project is currently WIP. Things might be missing.
 
 ## Build
 
