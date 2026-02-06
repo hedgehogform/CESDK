@@ -17,6 +17,7 @@ namespace CESDK
         public IntPtr CheckSynchronize;
     }
 
+    [SuppressMessage("Naming", "S101:Types should be named in PascalCase", Justification = "CESDK is an acronym")]
     public class CESDK
     {
         private const int PLUGIN_VERSION = 6;
@@ -24,7 +25,6 @@ namespace CESDK
         private static CheatEnginePlugin? _currentPlugin;
         public static CheatEnginePlugin? CurrentPlugin => _currentPlugin;
 
-        private UInt32 pluginId;
         private TExportedFunctions pluginExports;
 
         private static IntPtr PluginNamePtr;
@@ -35,7 +35,7 @@ namespace CESDK
         private delegate bool delegateGetVersion(ref TPluginVersion PluginVersion, int TPluginVersionSize);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        private delegate bool delegateEnablePlugin(ref TExportedFunctions ExportedFunctions, UInt32 pluginid);
+        private delegate bool delegateEnablePlugin(ref TExportedFunctions ExportedFunctions, uint pluginid);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate bool delegateDisablePlugin();
@@ -59,7 +59,7 @@ namespace CESDK
         [StructLayout(LayoutKind.Sequential)]
         private struct TPluginVersion
         {
-            public UInt32 version;
+            public uint version;
             public IntPtr name;
         }
 
@@ -67,9 +67,9 @@ namespace CESDK
         private struct TPluginInit
         {
             public IntPtr name;
-            public IntPtr GetVersion;
-            public IntPtr EnablePlugin;
-            public IntPtr DisablePlugin;
+            public IntPtr getVersionPtr;
+            public IntPtr enablePluginPtr;
+            public IntPtr disablePluginPtr;
             public int version;
         }
 
@@ -91,14 +91,13 @@ namespace CESDK
             return true;
         }
 
-        private static bool EnablePlugin(ref TExportedFunctions ExportedFunctions, UInt32 pluginid)
+        private static bool EnablePlugin(ref TExportedFunctions ExportedFunctions, uint pluginid)
         {
             try
             {
                 if (mainSelf == null || CurrentPlugin == null)
                     return false;
 
-                mainSelf.pluginId = pluginid;
                 mainSelf.pluginExports = ExportedFunctions;
 
                 mainSelf.delProcessMessages ??= Marshal.GetDelegateForFunctionPointer<delegateProcessMessages>(mainSelf.pluginExports.ProcessMessages);
@@ -126,11 +125,11 @@ namespace CESDK
                 CurrentPlugin?.DisablePlugin();
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                PluginLogger.LogException(ex);
                 return false;
             }
-
         }
 
         #endregion
@@ -204,7 +203,7 @@ namespace CESDK
 #if NETFRAMEWORK
         public static int CEPluginInitialize(string parameters)
         {
-            UInt64 args = UInt64.Parse(parameters);
+            ulong args = ulong.Parse(parameters);
 #else
         public static int CEPluginInitialize(IntPtr args, int size)
         {
@@ -230,13 +229,13 @@ namespace CESDK
                     PluginNamePtr = Marshal.StringToHGlobalAnsi(_currentPlugin.Name);
                 }
 
-                UInt64 address = (UInt64)args;
+                ulong address = (ulong)args;
                 var pluginInit = new TPluginInit
                 {
                     name = PluginNamePtr,
-                    GetVersion = Marshal.GetFunctionPointerForDelegate(mainSelf.delGetVersion!),
-                    EnablePlugin = Marshal.GetFunctionPointerForDelegate(mainSelf.delEnablePlugin!),
-                    DisablePlugin = Marshal.GetFunctionPointerForDelegate(mainSelf.delDisablePlugin!),
+                    getVersionPtr = Marshal.GetFunctionPointerForDelegate(mainSelf.delGetVersion!),
+                    enablePluginPtr = Marshal.GetFunctionPointerForDelegate(mainSelf.delEnablePlugin!),
+                    disablePluginPtr = Marshal.GetFunctionPointerForDelegate(mainSelf.delDisablePlugin!),
                     version = PLUGIN_VERSION
                 };
 
@@ -249,9 +248,9 @@ namespace CESDK
                 {
                     PluginLogger.LogException(ex);
                 }
-                catch
+                catch (Exception)
                 {
-                    // Fallback to console if logger fails
+                    // Logger failed, will use console fallback below
                 }
 
                 Console.WriteLine("CEPluginInitialize Exception:");

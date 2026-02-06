@@ -124,7 +124,7 @@ namespace CESDK.Classes
         {
             var hexString = GetThreadId(index);
             if (hexString.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-                hexString = hexString[2..];
+                hexString = hexString.Substring(2);
 
             return Convert.ToInt32(hexString, 16);
         }
@@ -132,7 +132,7 @@ namespace CESDK.Classes
         /// <summary>
         /// Gets all thread IDs as hex strings
         /// </summary>
-        public string[] GetAllThreadIds() => [.. threadIds];
+        public string[] GetAllThreadIds() => threadIds.ToArray();
 
         /// <summary>
         /// Gets all thread IDs as integers
