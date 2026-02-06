@@ -4,7 +4,7 @@ using CESDK.Utils;
 
 namespace CESDK.Classes
 {
-    public class FoundListException : Exception
+    public class FoundListException : CesdkException
     {
         public FoundListException(string message) : base(message) { }
         public FoundListException(string message, Exception innerException) : base(message, innerException) { }
@@ -48,7 +48,7 @@ namespace CESDK.Classes
                 lua.PCall(1, 1);
 
                 if (lua.IsCEObject(-1))
-                    CEObject = lua.ToCEObject(-1);                        
+                    CEObject = lua.ToCEObject(-1);
                 else
                     throw new FoundListException("No idea what createFoundList returned");
             }
@@ -65,7 +65,7 @@ namespace CESDK.Classes
         {
             if (!lua.IsCEObject(-1))
                 throw new FoundListException("Top of stack is not a FoundList CE object");
-                
+
             SetCEObjectFromStack();
         }
 
@@ -84,44 +84,6 @@ namespace CESDK.Classes
             PushCEObject();
         }
 
-        /// <summary>
-        /// Calls a method on the FoundList Lua object
-        /// </summary>
-        private void CallFoundListMethod(string methodName, string operationName)
-        {
-            try
-            {
-                PushFoundListObject();
-
-                // Get method
-                lua.GetField(-1, methodName);
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new FoundListException($"{methodName} method not available on FoundList object");
-                }
-
-                // Push self (FoundList object)
-                lua.PushValue(-2);
-
-                // Call method(self)
-                var result = lua.PCall(1, 0);
-                if (result != 0)
-                {
-                    var error = lua.ToString(-1);
-                    lua.Pop(1);
-                    throw new FoundListException($"{methodName}() call failed: {error}");
-                }
-
-                lua.Pop(1); // Pop FoundList object
-            }
-            catch (Exception ex) when (ex is not FoundListException)
-            {
-                throw new FoundListException($"Failed to {operationName}", ex);
-            }
-        }
-
-
         public void Initialize()
         {
             try
@@ -134,7 +96,8 @@ namespace CESDK.Classes
                 if (!lua.IsFunction(-1))
                     throw new FoundListException("foundlist with no initialize method");
 
-                lua.PCall(0, 0);
+                lua.PushValue(-2); // Push self (FoundList object)
+                lua.PCall(1, 0); // Call with self as argument
                 _initialized = true;
             }
             finally
@@ -148,7 +111,8 @@ namespace CESDK.Classes
         /// </summary>
         public void Deinitialize()
         {
-            CallFoundListMethod("deinitialize", "deinitialize FoundList");
+            EnsureFoundListObject();
+            CallMethod("deinitialize");
             _initialized = false;
         }
 
@@ -162,15 +126,26 @@ namespace CESDK.Classes
             try
             {
                 lua.PushCEObject(CEObject);
-                lua.PushString("Count");
+                lua.PushString("getCount");
                 lua.GetTable(-2);
 
+                if (!lua.IsFunction(-1))
+                {
+                    // Fallback to Count property
+                    lua.Pop(1);
+                    lua.PushString("Count");
+                    lua.GetTable(-2);
+                    return lua.ToInteger(-1);
+                }
+
+                lua.PushValue(-2); // Push self
+                lua.PCall(1, 1);
                 return lua.ToInteger(-1);
             }
             finally
             {
                 lua.SetTop(0);
-            }                
+            }
         }
 
         public string GetAddress(int i)
@@ -178,22 +153,21 @@ namespace CESDK.Classes
             try
             {
                 lua.PushCEObject(CEObject);
-                lua.PushString("Address");
+                lua.PushString("getAddress");
                 lua.GetTable(-2);
 
-                if (lua.IsTable(-1))
-                {
-                    lua.PushInteger(i);
-                    lua.GetTable(-2); //gets index i from the Address table  (pushInteger increased the stack by 1 so the -1 turned to -2, just in case you wanted to know...)
-                    return lua.ToString(-1) ?? "";
-                }                
+                if (!lua.IsFunction(-1))
+                    throw new FoundListException("foundlist with no getAddress method");
+
+                lua.PushValue(-2); // Push self
+                lua.PushInteger(i);
+                lua.PCall(2, 1);
+                return lua.ToString(-1) ?? "";
             }
             finally
             {
                 lua.SetTop(0);
             }
-
-            return "Error";
         }
 
         public string GetValue(int i)
@@ -201,22 +175,21 @@ namespace CESDK.Classes
             try
             {
                 lua.PushCEObject(CEObject);
-                lua.PushString("Value");
+                lua.PushString("getValue");
                 lua.GetTable(-2);
 
-                if (lua.IsTable(-1))
-                {
-                    lua.PushInteger(i);
-                    lua.GetTable(-2); //gets index i from the Address table  (pushInteger increased the stack by 1 so the -1 turned to -2, just in case you wanted to know...)
-                    return lua.ToString(-1) ?? "";
-                }
+                if (!lua.IsFunction(-1))
+                    throw new FoundListException("foundlist with no getValue method");
+
+                lua.PushValue(-2); // Push self
+                lua.PushInteger(i);
+                lua.PCall(2, 1);
+                return lua.ToString(-1) ?? "";
             }
             finally
             {
                 lua.SetTop(0);
             }
-
-            return "Error";
         }
 
         /// <summary>

@@ -4,7 +4,7 @@ using CESDK.Lua;
 
 namespace CESDK.Classes
 {
-    public class AddressListException : Exception
+    public class AddressListException : CesdkException
     {
         public AddressListException(string message) : base(message) { }
         public AddressListException(string message, Exception innerException) : base(message, innerException) { }
@@ -392,140 +392,6 @@ namespace CESDK.Classes
         }
 
         #endregion
-
-        #region Helper Methods
-
-        private void CallMethod(string methodName)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.GetField(-1, methodName);
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new AddressListException($"{methodName} method not available");
-                }
-                lua.PushValue(-2); // self
-                lua.PCall(1, 0);
-                lua.Pop(1);
-            }
-            catch (Exception ex) when (ex is not AddressListException)
-            {
-                throw new AddressListException($"Failed to call {methodName}", ex);
-            }
-        }
-
-        private int GetIntProperty(string name)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.GetField(-1, name);
-                var result = lua.ToInteger(-1);
-                lua.Pop(2);
-                return (int)result;
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        private long GetLongProperty(string name)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.GetField(-1, name);
-                var result = lua.ToInteger(-1);
-                lua.Pop(2);
-                return result;
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        private string GetStringProperty(string name)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.GetField(-1, name);
-                var result = lua.ToString(-1) ?? "";
-                lua.Pop(2);
-                return result;
-            }
-            catch
-            {
-                return "";
-            }
-        }
-
-        private bool GetBoolProperty(string name)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.GetField(-1, name);
-                var result = lua.ToBoolean(-1);
-                lua.Pop(2);
-                return result;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private void SetIntProperty(string name, int value)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.PushInteger(value);
-                lua.SetField(-2, name);
-                lua.Pop(1);
-            }
-            catch (Exception ex)
-            {
-                throw new AddressListException($"Failed to set {name}", ex);
-            }
-        }
-
-        private void SetStringProperty(string name, string value)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.PushString(value);
-                lua.SetField(-2, name);
-                lua.Pop(1);
-            }
-            catch (Exception ex)
-            {
-                throw new AddressListException($"Failed to set {name}", ex);
-            }
-        }
-
-        private void SetBoolProperty(string name, bool value)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.PushBoolean(value);
-                lua.SetField(-2, name);
-                lua.Pop(1);
-            }
-            catch (Exception ex)
-            {
-                throw new AddressListException($"Failed to set {name}", ex);
-            }
-        }
-
-        #endregion
     }
 
     /// <summary>
@@ -560,68 +426,17 @@ namespace CESDK.Classes
         /// <summary>
         /// Gets the number of records in the table
         /// </summary>
-        public int Count
-        {
-            get
-            {
-                try
-                {
-                    lua.PushCEObject(CEObject);
-                    lua.GetField(-1, "Count");
-                    var result = lua.ToInteger(-1);
-                    lua.Pop(2);
-                    return (int)result;
-                }
-                catch
-                {
-                    return 0;
-                }
-            }
-        }
+        public int Count => GetIntProperty("Count");
 
         /// <summary>
         /// Gets the number of selected records
         /// </summary>
-        public int SelCount
-        {
-            get
-            {
-                try
-                {
-                    lua.PushCEObject(CEObject);
-                    lua.GetField(-1, "SelCount");
-                    var result = lua.ToInteger(-1);
-                    lua.Pop(2);
-                    return (int)result;
-                }
-                catch
-                {
-                    return 0;
-                }
-            }
-        }
+        public int SelCount => GetIntProperty("SelCount");
 
         /// <summary>
         /// Gets the table version of the last loaded table
         /// </summary>
-        public int LoadedTableVersion
-        {
-            get
-            {
-                try
-                {
-                    lua.PushCEObject(CEObject);
-                    lua.GetField(-1, "LoadedTableVersion");
-                    var result = lua.ToInteger(-1);
-                    lua.Pop(2);
-                    return (int)result;
-                }
-                catch
-                {
-                    return 0;
-                }
-            }
-        }
+        public int LoadedTableVersion => GetIntProperty("LoadedTableVersion");
 
         #endregion
 
@@ -1021,31 +836,6 @@ namespace CESDK.Classes
                 {
                     // Continue trying to delete other records
                 }
-            }
-        }
-
-        #endregion
-
-        #region Helper Methods
-
-        private void CallMethod(string methodName)
-        {
-            try
-            {
-                lua.PushCEObject(CEObject);
-                lua.GetField(-1, methodName);
-                if (!lua.IsFunction(-1))
-                {
-                    lua.Pop(2);
-                    throw new AddressListException($"{methodName} method not available");
-                }
-                lua.PushValue(-2); // self
-                lua.PCall(1, 0);
-                lua.Pop(1);
-            }
-            catch (Exception ex) when (ex is not AddressListException)
-            {
-                throw new AddressListException($"Failed to call {methodName}", ex);
             }
         }
 
