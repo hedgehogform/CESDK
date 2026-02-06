@@ -5,7 +5,7 @@ using CESDK.Utils;
 
 namespace CESDK.Classes
 {
-    public class AddressResolutionException : Exception
+    public class AddressResolutionException : CesdkException
     {
         public AddressResolutionException(string message) : base(message) { }
         public AddressResolutionException(string message, Exception innerException) : base(message, innerException) { }
@@ -23,7 +23,7 @@ namespace CESDK.Classes
         private static ulong ParseRequiredAddress()
         {
             var lua = PluginContext.Lua;
-            
+
             if (lua.IsNumber(-1))
             {
                 return (ulong)lua.ToInteger(-1);
@@ -57,7 +57,7 @@ namespace CESDK.Classes
         private static ulong? ParseOptionalAddress()
         {
             var lua = PluginContext.Lua;
-            
+
             if (lua.IsNumber(-1))
             {
                 return (ulong)lua.ToInteger(-1);

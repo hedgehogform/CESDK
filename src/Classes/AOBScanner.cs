@@ -5,13 +5,13 @@ using CESDK.Lua;
 
 namespace CESDK.Classes
 {
-    public class AOBScanException : Exception
+    public class AobScanException : CesdkException
     {
-        public AOBScanException(string message) : base(message) { }
-        public AOBScanException(string message, Exception innerException) : base(message, innerException) { }
+        public AobScanException(string message) : base(message) { }
+        public AobScanException(string message, Exception innerException) : base(message, innerException) { }
     }
 
-    public static class AOBScanner
+    public static class AobScanner
     {
         public static List<ulong> Scan(string pattern, string? protectionFlags = null, int alignmentType = 0, string? alignmentParam = null) =>
             WrapException(() =>
@@ -80,7 +80,7 @@ namespace CESDK.Classes
             }
             catch (InvalidOperationException ex)
             {
-                throw new AOBScanException(ex.Message, ex);
+                throw new AobScanException(ex.Message, ex);
             }
         }
     }

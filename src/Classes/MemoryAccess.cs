@@ -3,7 +3,7 @@ using CESDK.Utils;
 
 namespace CESDK.Classes
 {
-    public class MemoryAccessException : Exception
+    public class MemoryAccessException : CesdkException
     {
         public MemoryAccessException(string message) : base(message) { }
         public MemoryAccessException(string message, Exception innerException) : base(message, innerException) { }
